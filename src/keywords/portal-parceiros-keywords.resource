@@ -490,3 +490,32 @@ FECHAR DETALHE DO LEAD
     ...    xpath=//label[normalize-space()='CPF/CNPJ:']/following-sibling::input
     ...    hidden
     ...    5s
+
+CUSTOMIZAR PRODUTO CLIENTE ESTEIRA
+    Wait For Elements State    //button[text()='Avançar']      visible     10s
+    Click       //button[text()='Avançar']
+
+SELECIONAR COMO DESEJA CONTINUAR A CONTRATACAO
+    [Arguments]     ${tipo_contratacao}
+
+    @{opcoes_disponiveis}=    Create List
+    ...     Enviar a proposta ao cliente
+    ...     Seguir com a contratação
+
+    ${contem_opcao}=    Run Keyword And Return Status
+    ...    List Should Contain Value
+    ...    ${opcoes_disponiveis}
+    ...    ${tipo_contratacao}
+
+    IF    ${contem_opcao}
+            Wait For Elements State     //button[text()='${tipo_contratacao}']      visible     10s
+            Click   //button[text()='${tipo_contratacao}']
+    ELSE
+        Log To Console    Opção informada não encontrado.
+    END
+    
+    Wait For Elements State     //button[text()='Confirmar']    visible     10s
+    Click   //button[text()='Confirmar']
+
+    Wait For Elements State     //button[text()='Confirmar']    visible     10s
+    Click   //button[text()='Confirmar']
