@@ -4,6 +4,7 @@ Library        Browser
 Library        BuiltIn
 Library        Collections
 Library        FakerLibrary    locale=pt_BR
+Library        String
 Library        ../services/pdf_service.py
 Library        ../services/rg_service.py
 Library        ../services/cpf_generator.py
@@ -90,6 +91,11 @@ GERAR DOCUMENTO RG
 
 GERAR MASSA DE DADOS COMPLETA
     ${lead_name}=            FakerLibrary.Name
+    # Remove títulos (Sr., Sra., Dr., etc.) e pontos residuais do nome
+    ${lead_name}=    Evaluate    re.sub(r'\b(Sr|Sra|Srta|Dr|Dra|Prof|Profa)\.?\s+', '', '''${lead_name}''', flags=re.IGNORECASE)    modules=re
+    ${lead_name}=    Replace String    ${lead_name}    .    ${EMPTY}
+    ${lead_name}=    Evaluate    ' '.join('''${lead_name}'''.split())
+
     ${lead_cpf}=             Gerar Cpf    formatado=True
     ${lead_email}=           FakerLibrary.Email
     ${lead_state}=           FakerLibrary.RandomChoices    elements=('RN', 'PI', 'PE', 'MG', 'MT', 'GO', 'CE', 'BA')    length=1
@@ -107,6 +113,8 @@ GERAR MASSA DE DADOS COMPLETA
     ${lead_mother}=              FakerLibrary.NameFemale
     ${lead_naturalness}=         FakerLibrary.City
     ${lead_birthdate}=           FakerLibrary.DateOfBirth    minimum_age=18    maximum_age=60
+
+    
 
     &{massa_dados}=    Create Dictionary
         ...            name=${lead_name}

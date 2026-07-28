@@ -68,7 +68,7 @@ def executar_teste(caminho_robot, botao, texto_original):
         window.after(0, finalizar, resultado.returncode == 0)
 
     def finalizar(sucesso):
-        botao.config(text=f"{texto_original} {'OK' if sucesso else 'Falhou'}", state="normal", bg='#00FF00' if sucesso else '#FF6347')
+        botao.config(text=f"{texto_original} {' - OK' if sucesso else ' - Falhou'}", state="normal", bg="#008300" if sucesso else "#FD3C1A")
         estado_execucao["em_andamento"] = False
 
     threading.Thread(target=rodar, daemon=True).start()
