@@ -62,6 +62,34 @@ ${TAB_CONTAS}                accessibility_id=Contas
 # (apenas um dos dois aparece por vez), por isso localizamos por texto parcial.
 ${TXT_BANNER_UNIFICACAO}      xpath=//*[contains(@text, "unificada")]
 
+# Card "Últimas contas em aberto": campos são TextViews irmãos, em ordem, após
+# o título. NOTA: o mecanismo de XPath do Appium/UiAutomator2 avalia o eixo
+# preceding-sibling em ordem DIRETA do documento (não invertida, como no
+# XPath padrão) — por isso ancoramos com following-sibling a partir de um
+# título anterior, em vez de contar "de trás pra frente" a partir do botão.
+${BTN_PAGAR_CONTA}                accessibility_id=Pagar conta
+${TXT_MES_ANO_CONTA_ABERTA}        xpath=//*[@text="Últimas contas em aberto"]/following-sibling::android.widget.TextView[2]
+${TXT_STATUS_CONTA_ABERTA}         xpath=//*[@text="Últimas contas em aberto"]/following-sibling::android.widget.TextView[3]
+${TXT_VALOR_CONTA_ABERTA}          xpath=//*[@text="Últimas contas em aberto"]/following-sibling::android.widget.TextView[4]
+${TXT_VENCIMENTO_CONTA_ABERTA}     xpath=//*[@text="Últimas contas em aberto"]/following-sibling::android.widget.TextView[5]
+
+# Opções de pagamento (só aparecem para conta em aberto). "Pix copia e cola" e
+# "Código de barras" copiam pro clipboard (sem mudança visual); "Pix QR code"
+# abre um modal.
+${OPCAO_PIX_COPIA_COLA}       xpath=//*[starts-with(@content-desc, "Pix copia e cola")]
+${OPCAO_CODIGO_BARRAS}        xpath=//*[starts-with(@content-desc, "Código de barras")]
+${OPCAO_PIX_QRCODE}           accessibility_id=Pix QR code
+${MODAL_QRCODE_TITULO}        accessibility_id=Realize o pagamento
+${BTN_FECHAR_MODAL_QRCODE}    xpath=//*[@text="Realize o pagamento"]/following-sibling::*[1]
+
+# "Encaminhar" abre a folha de compartilhamento nativa com um PDF (mesmo
+# padrão do banner de indicação, mas compartilhando arquivo em vez de texto).
+${BTN_ENCAMINHAR_CONTA}          xpath=//*[contains(@content-desc, "Encaminhar")]
+${TXT_ARQUIVO_COMPARTILHADO}     id=com.android.intentresolver:id/content_preview_filename
+
+${BTN_VER_HISTORICO}          xpath=//*[starts-with(@content-desc, "Ver histórico completo de contas")]
+${TXT_TITULO_HISTORICO}       xpath=//*[@text="Histórico completo de contas"]
+
 # Ícone de perfil no canto superior esquerdo da home (sem texto/id acessível;
 # localizado pela posição — primeiro filho clicável do cabeçalho da home).
 ${BTN_PERFIL_HOME}              xpath=(//android.view.ViewGroup[@clickable="true"])[1]
@@ -245,6 +273,63 @@ IR PARA ABA CONTAS
 OBTER TEXTO DO BANNER DE UNIFICACAO
     ${texto}=    Get Text    ${TXT_BANNER_UNIFICACAO}
     RETURN    ${texto}
+
+OBTER DADOS DA CONTA EM ABERTO
+    Wait Until Page Contains Element    ${BTN_PAGAR_CONTA}    timeout=10s
+    ${mes_ano}=    Get Text    ${TXT_MES_ANO_CONTA_ABERTA}
+    ${status}=    Get Text    ${TXT_STATUS_CONTA_ABERTA}
+    ${valor}=    Get Text    ${TXT_VALOR_CONTA_ABERTA}
+    ${vencimento}=    Get Text    ${TXT_VENCIMENTO_CONTA_ABERTA}
+    Should Be Equal As Strings    ${status}    Em aberto
+    Should Match Regexp    ${valor}    ^R\\$\\s\\d{1,3}(\\.\\d{3})*,\\d{2}$
+    Should Match Regexp    ${vencimento}    ^Vencimento: \\d{2}/\\d{2}/\\d{4}$
+    ${dados}=    Create Dictionary
+    ...    mes_ano=${mes_ano}    status=${status}    valor=${valor}    vencimento=${vencimento}
+    RETURN    ${dados}
+
+CLICAR EM PAGAR CONTA
+    Wait Until Page Contains Element    ${BTN_PAGAR_CONTA}    timeout=10s
+    Click Element    ${BTN_PAGAR_CONTA}
+    Wait Until Page Contains Element    ${TXT_TITULO_PAGAMENTO}    timeout=10s
+
+VALIDAR OPCOES DE PAGAMENTO DISPONIVEIS
+    Wait Until Page Contains Element    ${OPCAO_PIX_COPIA_COLA}    timeout=10s
+    Element Should Be Enabled    ${OPCAO_PIX_COPIA_COLA}
+    Page Should Contain Element    ${OPCAO_CODIGO_BARRAS}
+    Element Should Be Enabled    ${OPCAO_CODIGO_BARRAS}
+    Page Should Contain Element    ${OPCAO_PIX_QRCODE}
+    Element Should Be Enabled    ${OPCAO_PIX_QRCODE}
+
+ABRIR PIX QR CODE
+    Click Element    ${OPCAO_PIX_QRCODE}
+    Wait Until Page Contains Element    ${MODAL_QRCODE_TITULO}    timeout=10s
+
+FECHAR MODAL QR CODE
+    Click Element    ${BTN_FECHAR_MODAL_QRCODE}
+    Wait Until Page Does Not Contain Element    ${MODAL_QRCODE_TITULO}    timeout=10s
+
+CLICAR EM ENCAMINHAR CONTA
+    Wait Until Page Contains Element    ${BTN_ENCAMINHAR_CONTA}    timeout=10s
+    Click Element    ${BTN_ENCAMINHAR_CONTA}
+
+VALIDAR ARQUIVO DE CONTA COMPARTILHADO
+    [Arguments]    ${mes_ano}
+    Wait Until Page Contains Element    ${TXT_ARQUIVO_COMPARTILHADO}    timeout=10s
+    ${nome_arquivo}=    Get Text    ${TXT_ARQUIVO_COMPARTILHADO}
+    ${mes_ano_com_hifen}=    Evaluate    """${mes_ano}""".replace("/", "-")
+    Should Be Equal As Strings    ${nome_arquivo}    Conta Evolua-${mes_ano_com_hifen}.pdf
+
+IR PARA HISTORICO COMPLETO DE CONTAS
+    Wait Until Page Contains Element    ${BTN_VER_HISTORICO}    timeout=10s
+    Click Element    ${BTN_VER_HISTORICO}
+    Wait Until Page Contains Element    ${TXT_TITULO_HISTORICO}    timeout=10s
+
+VALIDAR LISTA DE HISTORICO DE CONTAS
+    # Cada conta do histórico (paga ou em aberto) tem um botão "Encaminhar";
+    # validamos que a lista tem mais de uma conta, sem fixar a quantidade
+    # exata (varia por cliente/tempo de casa).
+    ${qtd_contas}=    Get Matching Xpath Count    //*[contains(@content-desc, "Encaminhar")]
+    Should Be True    ${qtd_contas} >= 2
 
 ABRIR MENU DE PERFIL
     Wait Until Page Contains Element    ${BTN_PERFIL_HOME}    timeout=10s
