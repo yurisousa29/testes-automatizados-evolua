@@ -2,6 +2,13 @@
 Documentation    Compara os dados da 2ª via da fatura exibidos no app (aba
 ...              Pagamento e Consumo) com o registro correspondente de
 ...              Transacao__c no Salesforce.
+...
+...              ATENÇÃO: este teste só é 100% válido quando SALESFORCE_AUTH_URL
+...              aponta para o MESMO ambiente que o app em teste consulta. O
+...              app mobile (BETA) usa produção; se a Connected App configurada
+...              no .env for de homolog, uma divergência aqui pode ser só
+...              diferença de dado entre ambientes, não um bug real. Ver
+...              README.md, seção "Limitação conhecida".
 Library            ../../../load_env.py
 Resource    ../../keywords/app-mobile-keywords.resource
 Resource    ../../keywords/salesforce-keywords.resource

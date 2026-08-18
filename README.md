@@ -50,3 +50,18 @@ Executar um teste específico:
 ```
 robot --outputdir results src/tests/app_mobile/login.robot
 ```
+
+#### ⚠️ Limitação conhecida: ambiente do Salesforce x ambiente do app
+
+O `SALESFORCE_AUTH_URL` atual aponta para o ambiente de **homolog**. O app
+mobile em teste (versão **BETA**) consulta o ambiente de **produção**. Isso
+significa que os testes que cruzam dados do app com o Salesforce
+(`fatura_salesforce.robot`, `contas_unificacao.robot`) podem acusar
+divergência de dados mesmo quando não há bug — o dado em si é diferente
+entre os dois ambientes, não desatualizado.
+
+Para validar esses testes de fato contra a mesma fonte que o app usa, aponte
+`SALESFORCE_AUTH_URL`/`SALESFORCE_CLIENT_ID`/`SALESFORCE_CLIENT_SECRET` para
+uma Connected App do ambiente de **produção** (assim que o app sair do BETA
+e/ou tivermos acesso). Até lá, uma divergência nesses testes não deve ser
+tratada como bug confirmado sem antes conferir o ambiente.

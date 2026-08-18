@@ -4,6 +4,11 @@ Documentation    Valida que o banner de unificação de contas (aba Contas) refl
 ...              UnidadeConsumidoraDoConsorcio__c.FaturaDistribuidoraNaoUnificada__c:
 ...              "Não Unificado" -> "Sua conta não está unificada."
 ...              "Unificado" / "Unificado Especial" -> "Sua conta está unificada."
+...
+...              ATENÇÃO: este teste só é 100% válido quando SALESFORCE_AUTH_URL
+...              aponta para o MESMO ambiente que o app em teste consulta (o
+...              app mobile BETA usa produção). Ver README.md, seção
+...              "Limitação conhecida".
 Library            ../../../load_env.py
 Resource    ../../keywords/app-mobile-keywords.resource
 Resource    ../../keywords/salesforce-keywords.resource
