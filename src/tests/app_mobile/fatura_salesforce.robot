@@ -9,6 +9,17 @@ Documentation    Compara os dados da 2ª via da fatura exibidos no app (aba
 ...              no .env for de homolog, uma divergência aqui pode ser só
 ...              diferença de dado entre ambientes, não um bug real. Ver
 ...              README.md, seção "Limitação conhecida".
+...
+...              Testamos Abril, Maio e Junho/2026 pra essa instalação: Abril e
+...              Maio divergiram em 3 campos (valor, vencimento, "sem a
+...              Evolua"); Junho divergiu só no status numa execução e, ao
+...              rodar de novo minutos depois, bateu 100% — os dados de
+...              homolog parecem ser sincronizados periodicamente com
+...              produção, então a divergência não é fixa, varia no tempo.
+...              Junho foi fixado aqui por ser o mês mais estável observado,
+...              mas uma falha aqui não deve ser tratada como bug confirmado
+...              sem antes conferir se é só o ambiente fora de sincronia no
+...              momento do teste.
 Library            ../../../load_env.py
 Resource    ../../keywords/app-mobile-keywords.resource
 Resource    ../../keywords/salesforce-keywords.resource
@@ -17,7 +28,7 @@ Test Teardown    FECHAR APLICATIVO
 
 *** Variables ***
 ${ANO_TESTE}     2026
-${MES_TESTE}     Maio
+${MES_TESTE}     Junho
 
 *** Test Cases ***
 DADOS DA FATURA NO APP DEVEM BATER COM SALESFORCE
