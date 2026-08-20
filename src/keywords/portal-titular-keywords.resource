@@ -26,6 +26,28 @@ REALIZAR LOGIN PORTAL DO TITULAR
     Wait For Elements State    (//div[contains(text(),'Entrar')])[last()]    visible    10s
     Click    (//div[contains(text(),'Entrar')])[last()]
 
+VALIDAR MENSAGEM DE ERRO DE LOGIN
+    [Documentation]    Confirma a mensagem de erro exibida no formulário de login
+    ...    (mesmas mensagens do app mobile: e-mail não cadastrado, senha incorreta
+    ...    ou erro de conexão) e que o login realmente não foi concluído — a tela
+    ...    de login continua visível.
+    [Arguments]    ${mensagem_esperada}
+    Wait For Elements State    //div[contains(@class,'text-error')]    visible    15s
+    ${mensagem}=    Get Text    //div[contains(@class,'text-error')]
+    Should Be Equal As Strings    ${mensagem}    ${mensagem_esperada}
+    Wait For Elements State    (//div[contains(text(),'Entrar')])[last()]    visible    5s
+
+DESATIVAR CONEXAO DE REDE
+    [Documentation]    Simula perda de conexão bloqueando toda a rede do contexto
+    ...    do navegador (equivalente a desativar wifi/dados no emulador mobile).
+    Set Offline    True
+
+REATIVAR CONEXAO DE REDE
+    [Documentation]    Sempre chamado no teardown dos testes que desativam a rede —
+    ...    mesmo se o teste falhar, o contexto não pode ficar offline para os
+    ...    testes seguintes.
+    Run Keyword And Ignore Error    Set Offline    False
+
 PULAR ETAPA DE SALVAR ACESSO
     [Documentation]    A tela "Deseja salvar seus dados de acesso?" é condicional —
     ...    confirmado em execuções reais em 2026-08-20: apareceu em uma rodada e
@@ -64,12 +86,13 @@ VALIDAR BANNER INDICACAO
     Wait For Elements State    //img[contains(@src,'MainBanner')]    visible    10s
 
 CLICAR NO BANNER INDICACAO
-    [Documentation]    Clica no banner de indicação (imagem) e confirma que uma
-    ...    nova aba foi aberta (o banner leva a um link externo).
+    [Documentation]    Clica no banner de indicação (imagem) e retorna a lista de
+    ...    páginas abertas antes do clique, para validação por quem chamar (ver
+    ...    NOVA PAGINA DEVE ESTAR ABERTA / VALIDAR MENSAGEM PADRAO DE INDICACAO).
     VALIDAR BANNER INDICACAO
     @{paginas_antes}=    Get Page Ids
     Click    //img[contains(@src,'MainBanner')]
-    Wait Until Keyword Succeeds    5s    500ms    NOVA PAGINA DEVE ESTAR ABERTA    ${paginas_antes}
+    RETURN    ${paginas_antes}
 
 NOVA PAGINA DEVE ESTAR ABERTA
     [Arguments]    ${paginas_antes}
@@ -77,6 +100,12 @@ NOVA PAGINA DEVE ESTAR ABERTA
     ${qtd_antes}=    Get Length    ${paginas_antes}
     ${qtd_depois}=    Get Length    ${paginas_depois}
     Should Be True    ${qtd_depois} > ${qtd_antes}    Nenhuma aba nova foi aberta.
+
+URL DA PAGINA NAO DEVE ESTAR VAZIA
+    [Documentation]    A aba nova pode existir (Get Page Ids) antes de terminar de
+    ...    navegar para a URL de destino — Get Url retorna vazio nesse instante.
+    ${url}=    Get Url
+    Should Not Be Empty    ${url}
 
 ACESSAR DADOS CADASTRAIS
     Wait For Elements State    //div[contains(text(),'Perfil')]    visible    10s
@@ -174,3 +203,243 @@ GERAR EMAIL INVALIDO DE TESTE
     ${email_base}=    FakerLibrary.Email
     ${email_invalido}=    Replace String    ${email_base}    @    ${EMPTY}
     RETURN    ${email_invalido}
+
+VALIDAR MENSAGEM PADRAO DE INDICACAO
+    [Documentation]    Confirma que uma aba nova foi aberta com o link de
+    ...    compartilhamento padrão via WhatsApp (api.whatsapp.com/send?text=...),
+    ...    com a mesma mensagem fixa usada no app mobile (mesmo backend).
+    ...    O PIN do cliente é dinâmico (varia por conta), então validamos o
+    ...    padrão da URL em vez de um valor fixo. Fecha a aba nova ao final e
+    ...    volta para a página original.
+    [Arguments]    ${paginas_antes}
+    Wait Until Keyword Succeeds    5s    500ms    NOVA PAGINA DEVE ESTAR ABERTA    ${paginas_antes}
+    Switch Page    NEW
+    Wait Until Keyword Succeeds    5s    500ms    URL DA PAGINA NAO DEVE ESTAR VAZIA
+    ${url}=    Get Url
+    # NOTA (2026-08-20): a URL final varia conforme a rota — ex.: clicar direto no
+    # banner leva à URL "crua" (.../send?text=...), enquanto outros caminhos podem
+    # passar pelo redirect do próprio WhatsApp (.../send/?text=...&type=custom_url...,
+    # com "+" no lugar de "%20" e parâmetros extras). Por isso validamos só o host+path
+    # e extraímos o parâmetro "text" via parse_qs (tolerante à ordem/formatação),
+    # em vez de casar a URL inteira ou fatiar a string manualmente.
+    Should Contain    ${url}    api.whatsapp.com/send
+    ${query}=    Evaluate    urllib.parse.urlparse('''${url}''').query    modules=urllib.parse
+    ${params}=    Evaluate    urllib.parse.parse_qs('''${query}''')    modules=urllib.parse
+    ${mensagem}=    Evaluate    $params['text'][0]
+    Should Contain    ${mensagem}    Ei, quero te indicar algo que tem me ajudado muito
+    Should Contain    ${mensagem}    economizando todo mês na conta de luz com a Evolua Energia
+    Should Contain    ${mensagem}    É super simples, tudo online, não precisa instalar nada e nenhum investimento
+    Should Contain    ${mensagem}    Descubra o quanto você pode economizar
+    Should Match Regexp    ${mensagem}    https://cloud\\.economia\\.evoluaenergia\\.com\\.br/evoluamaiscontratacaocogni2/\\?pin=\\S+
+    Close Page
+    Switch Page    ${paginas_antes}[0]
+
+# ---------------------------------------------------------------------------
+# Perfil / Instalação
+# ---------------------------------------------------------------------------
+
+ABRIR MENU DE PERFIL
+    Wait For Elements State    //div[contains(text(),'Perfil')]    visible    10s
+    Click    //div[contains(text(),'Perfil')]
+
+IR PARA RENOMEAR INSTALACAO
+    Wait For Elements State    //div[contains(text(),'Renomear instala')]    visible    10s
+    Click    //div[contains(text(),'Renomear instala')]
+    Wait For Elements State    //div[starts-with(text(),'Instalação ')]    visible    10s
+
+OBTER NUMERO DA INSTALACAO
+    ${texto}=    Get Text    //div[starts-with(text(),'Instalação ')]
+    ${numero}=    Evaluate    '''${texto}'''.replace('Instalação ', '').strip()
+    RETURN    ${numero}
+
+VOLTAR
+    [Documentation]    Clica no link/botão "Voltar" da tela atual (navegação
+    ...    interna do SPA). NÃO usar "Go Back" do navegador nem "Go To" com a URL
+    ...    base — confirmado em 2026-08-20 que ambos quebram a sessão (o app não
+    ...    usa a History API do navegador para essas transições internas).
+    Click    (//div[contains(text(),'Voltar')])[last()]
+
+# ---------------------------------------------------------------------------
+# Fatura / 2ª via
+# ---------------------------------------------------------------------------
+
+ABRIR POPUP SEGUNDA VIA
+    Wait For Elements State    //div[contains(text(),'Gerar 2') and contains(text(),'via da fatura')]    visible    10s
+    Click    //div[contains(text(),'Gerar 2') and contains(text(),'via da fatura')]
+    Wait For Elements State    text=2ª Via da Conta Evolua    visible    10s
+
+VALIDAR ESTADO INICIAL DO POPUP SEGUNDA VIA
+    [Documentation]    O botão "Gerar 2ª via da fatura" do popup começa desabilitado
+    ...    até que Ano e Mês sejam escolhidos (mesmo comportamento do app mobile).
+    Get Element States    (//div[contains(text(),'Gerar 2ª via da fatura')])[last()]    contains    disabled
+
+SELECIONAR ANO SEGUNDA VIA
+    [Arguments]    ${ano}
+    Click    //div[text()='Ano']
+    Wait For Elements State    //div[text()='${ano}']    visible    5s
+    Click    //div[text()='${ano}']
+
+SELECIONAR MES SEGUNDA VIA
+    [Arguments]    ${mes}
+    Click    //div[text()='Mês']
+    Wait For Elements State    //div[text()='${mes}']    visible    5s
+    Click    //div[text()='${mes}']
+
+VALIDAR BOTAO GERAR HABILITADO
+    Get Element States    (//div[contains(text(),'Gerar 2ª via da fatura')])[last()]    contains    enabled
+
+CLICAR EM GERAR SEGUNDA VIA
+    Click    (//div[contains(text(),'Gerar 2ª via da fatura')])[last()]
+    Wait For Elements State    //div[contains(text(),'Pagamento da conta')]    visible    15s
+
+VALIDAR ABA PAGAMENTO
+    [Documentation]    Valida os dados da aba "Pagamento" da 2ª via gerada e retorna
+    ...    um dicionário com os valores (para eventual comparação com o Salesforce).
+    ...
+    ...    NOTA (2026-08-20): o texto "${mes}/${ano}" é renderizado como 3 text
+    ...    nodes separados ("Junho", "/", "2026") — XPath text() nunca casa com
+    ...    isso, só o motor de texto do Playwright (locator "text="). Além disso
+    ...    o card de pagamento fica sobreposto ao conteúdo da home no DOM (ambos
+    ...    presentes ao mesmo tempo), então extrair valores por XPath posicional
+    ...    arrisca pegar o card errado (ex.: "economia total" da home em vez da
+    ...    "economia este mês" do card). Por isso os valores são extraídos via
+    ...    innerText do menor ancestral que contém título+Vencimento+economia,
+    ...    em vez de XPath sibling/ancestor.
+    [Arguments]    ${mes}    ${ano}
+    Wait For Elements State    text=Pagamento da conta    visible    10s
+    Wait For Elements State    text=${mes}/${ano}    visible    10s
+
+    ${texto_card}=    Evaluate JavaScript    ${None}    (() => {
+    ...    var titulo = Array.from(document.querySelectorAll('div')).find(function(d){
+    ...    return d.children.length === 0 && (d.innerText || '').trim() === 'Pagamento da conta';
+    ...    });
+    ...    if (!titulo) return '';
+    ...    var atual = titulo;
+    ...    for (var i = 0; i < 10 && atual; i++) {
+    ...    var txt = atual.innerText || '';
+    ...    if (txt.indexOf('Vencimento') !== -1 && txt.toLowerCase().indexOf('economia este') !== -1) {
+    ...    return txt;
+    ...    }
+    ...    atual = atual.parentElement;
+    ...    }
+    ...    return '';
+    ...    })()
+    Should Not Be Empty    ${texto_card}    Não foi possível localizar o card de pagamento na página.
+
+    Should Match Regexp    ${texto_card}    (?i)\\bPago\\b|Pendente|Vencid
+    ${status}=    Evaluate    re.search(r'(?i)Pago|Pendente|Vencid\\w*', '''${texto_card}''').group(0)    modules=re
+
+    ${valor}=    Evaluate    re.search(r'R\\$\\s?[\\d.]+,\\d{2}', '''${texto_card}'''.split('Vencimento')[0]).group(0)    modules=re
+
+    ${vencimento}=    Evaluate    re.search(r'Vencimento:\\s?(\\d{2}/\\d{2}/\\d{4})', '''${texto_card}''').group(1)    modules=re
+
+    ${economia}=    Evaluate    re.search(r'Sua economia este mês é (R\\$\\s?[\\d.]+,\\d{2})', '''${texto_card}''').group(1)    modules=re
+
+    &{dados}=    Create Dictionary
+    ...    mes_ano=${mes}/${ano}    valor=${valor}    status=${status}
+    ...    vencimento=${vencimento}    economia=${economia}
+    RETURN    &{dados}
+
+IR PARA ABA CONSUMO
+    [Documentation]    NOTA (2026-08-20): a aba "Consumo" ficou travada num spinner
+    ...    infinito nas execuções manuais contra homologação, mesmo aguardando
+    ...    10s+ — pode ser um problema real do ambiente/conta de teste, não do
+    ...    locator. Por isso esta keyword só confirma a navegação (o título
+    ...    aparece); não valida os valores exibidos. Investigar antes de
+    ...    fortalecer esta validação.
+    Click    //div[text()='Consumo']
+    Wait For Elements State    //div[text()='Descrição do consumo']    visible    10s
+
+# ---------------------------------------------------------------------------
+# Contas (aba inferior)
+# ---------------------------------------------------------------------------
+
+IR PARA ABA CONTAS
+    Wait For Elements State    //div[text()='Contas']    visible    10s
+    Click    //div[text()='Contas']
+    Wait For Elements State    //div[contains(text(),'unificada')]    visible    10s
+
+OBTER TEXTO DO BANNER DE UNIFICACAO
+    ${texto}=    Get Text    //div[contains(text(),'unificada')]
+    RETURN    ${texto}
+
+CONTA EM ABERTO EXISTE
+    [Documentation]    Retorna False sem falhar quando não há conta em aberto —
+    ...    usado para pular graciosamente os testes de pagamento/encaminhamento
+    ...    quando o estado atual da conta de teste não tem fatura pendente.
+    ${sem_conta}=    Run Keyword And Return Status
+    ...    Wait For Elements State    text=Nenhuma conta em aberto encontrada    visible    5s
+    ${existe}=    Evaluate    not ${sem_conta}
+    RETURN    ${existe}
+
+IR PARA HISTORICO COMPLETO DE CONTAS
+    Wait For Elements State    //div[contains(text(),'Ver hist') and contains(text(),'rico completo de contas')]    visible    10s
+    Click    //div[contains(text(),'Ver hist') and contains(text(),'rico completo de contas')]
+    Wait For Elements State    //div[contains(text(),'Histórico completo de contas')]    visible    10s
+
+VALIDAR LISTA DE HISTORICO DE CONTAS
+    [Documentation]    Cada conta do histórico tem um botão "Baixar conta" (web usa
+    ...    download em vez do compartilhamento nativo do mobile); validamos que a
+    ...    lista tem mais de uma conta, sem fixar a quantidade exata.
+    ${qtd_contas}=    Get Element Count    //div[contains(text(),'Baixar conta')]
+    Should Be True    ${qtd_contas} >= 2    Esperava pelo menos 2 contas no histórico, encontrado ${qtd_contas}.
+
+# ---------------------------------------------------------------------------
+# Indicação (aba inferior)
+# ---------------------------------------------------------------------------
+
+IR PARA ABA INDICACAO
+    Wait For Elements State    //div[text()='Indicação']    visible    10s
+    Click    //div[text()='Indicação']
+    Wait For Elements State    //div[text()='Indicar amigo']    visible    10s
+
+ABRIR FORMULARIO INDICAR AMIGO
+    Click    //div[text()='Indicar amigo']
+    Wait For Elements State    //div[text()='Indicar']    visible    10s
+
+VALIDAR BOTAO INDICAR DESABILITADO
+    Get Element States    //div[text()='Indicar']    contains    disabled
+
+PREENCHER FORMULARIO INDICAR AMIGO
+    [Arguments]    ${nome}    ${telefone}
+    Fill Text    //input[@placeholder='Insira aqui o nome']    ${nome}
+    Fill Text    //input[@placeholder='Insira aqui o telefone']    ${telefone}
+
+VALIDAR TELEFONE COM MASCARA APLICADA
+    ${valor}=    Get Text    //input[@placeholder='Insira aqui o telefone']
+    Should Match Regexp    ${valor}    ^\\(\\d{2}\\) \\d{4,5}-\\d{4}$
+
+VALIDAR BOTAO INDICAR HABILITADO
+    Get Element States    //div[text()='Indicar']    contains    enabled
+
+VALIDAR ERRO DE TELEFONE INVALIDO
+    Wait For Elements State    //div[contains(text(),'Telefone deve ter pelo menos 10 dígitos')]    visible    10s
+    Get Element States    //div[text()='Indicar']    contains    disabled
+
+FECHAR FORMULARIO SEM ENVIAR
+    [Documentation]    Não clicamos em "Indicar": isso enviaria um convite real.
+    ...    Fecha com ESC (confirmado em 2026-08-20: o "X" do modal não é um
+    ...    elemento com locator estável — nenhum <svg> próximo ao modal). Antes
+    ...    do ESC, clica num texto neutro do modal para tirar o foco do campo de
+    ...    telefone — com o input focado, o ESC não fecha o modal (o evento é
+    ...    consumido pelo campo, não propaga).
+    Click    //div[text()='Preencha os campos abaixo:']
+    Sleep    500ms
+    Keyboard Key    press    Escape
+    Wait For Elements State    //div[text()='Indicar']    hidden    10s
+
+CLICAR EM COMPARTILHAR INDICACAO
+    Wait For Elements State    //div[text()='Compartilhar']    visible    10s
+    Click    //div[text()='Compartilhar']
+
+ABRIR COMO FUNCIONA INDICACAO
+    Wait For Elements State    //div[contains(text(),'Como funciona')]    visible    10s
+    Click    //div[contains(text(),'Como funciona')]
+    Wait For Elements State    text=Dúvidas sobre o indique e ganhe    visible    10s
+
+IR PARA ALTERAR CHAVE PIX
+    [Documentation]    Apenas navega até a tela — NÃO altera nem submete nenhum
+    ...    dado, pois a tela envolve dados bancários reais da conta de teste.
+    Wait For Elements State    //div[contains(text(),'Alterar chave pix')]    visible    10s
+    Click    //div[contains(text(),'Alterar chave pix')]
+    Wait For Elements State    text=Cadastro chave Pix    visible    10s

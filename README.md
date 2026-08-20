@@ -21,14 +21,55 @@ Além das URLs e credenciais, há uma variável opcional:
 - `SALESFORCE_CLIENT_ID`, `SALESFORCE_CLIENT_SECRET`, `SALESFORCE_AUTH_URL` —
   credenciais da Connected App (fluxo OAuth Client Credentials).
 
-### Portal do Titular
+### Portal do Titular (`src/tests/portal_titular`)
 
-Variáveis adicionais usadas pelos testes em `src/tests/portal_titular/`:
+Testes do Portal do Titular (portal web, `robotframework-browser`/Playwright). Cobertura
+espelhada da suíte do app mobile (`src/tests/app_mobile`) — mesmo backend, mesmas
+mensagens de erro e regras de negócio na maioria dos fluxos.
+
+Variáveis de ambiente:
 
 - `URL_PORTAL_TITULAR` — URL do Portal do Titular (ex.: `https://portal-hml.evoluaenergia.com.br/`)
 - `EMAIL_PORTAL_TITULAR` / `PASSWORD_PORTAL_TITULAR` — credenciais de um usuário de teste válido
 - `CPF_TITULAR` — CPF (com ou sem formatação) do titular usado para login, necessário para
   localizar o Contact correspondente no Salesforce e validar que a alteração de e-mail persistiu
+- `PORTAL_EMAIL_TESTE` — opcional, e-mail usado no teste de alteração cadastral com sucesso
+  (tem um default gerado por Faker se não definida)
+
+Arquivos de teste:
+
+| Arquivo | Cobre |
+|---|---|
+| `login_credenciais_invalidas.robot` | e-mail não cadastrado / senha incorreta |
+| `login_sem_conexao.robot` | contexto do navegador offline (`Set Offline`) |
+| `indicacao.robot` | banner de indicação na home + link de compartilhamento (WhatsApp) |
+| `dados_cadastrais.robot` | alteração de e-mail cadastral, com sucesso e com erro, validado via Salesforce |
+| `fatura.robot` | popup de 2ª via (habilitação progressiva Ano/Mês/Gerar) + aba Pagamento |
+| `instalacao.robot` | número de instalação via Perfil → Renomear instalação |
+| `contas_unificacao.robot` | banner de unificação de contas, validado via Salesforce |
+| `contas_historico.robot` | histórico completo de contas |
+| `contas_pagamento.robot` / `contas_encaminhar.robot` | ⚠️ pendentes — ver limitação abaixo |
+| `indicacao_tab_indicar_amigo.robot` | formulário "Indique um amigo" (habilitação, máscara, validação) |
+| `indicacao_tab_compartilhar.robot` | botão "Compartilhar" da aba Indicação |
+| `indicacao_tab_faq.robot` | "Como funciona o Rede Evolua+?" |
+| `indicacao_tab_chave_pix.robot` | navegação até "Alterar chave pix" (não submete dados) |
+
+#### ⚠️ Limitações conhecidas (2026-08-20)
+
+- **Aba "Consumo" da 2ª via**: ficou travada num spinner infinito em execuções manuais
+  contra homologação. `IR PARA ABA CONSUMO` só confirma a navegação, sem validar os
+  valores exibidos — investigar antes de fortalecer essa validação.
+- **`contas_pagamento.robot` / `contas_encaminhar.robot`**: a conta de teste configurada
+  não tinha nenhuma conta em aberto no momento em que esses testes foram escritos, então
+  não foi possível confirmar os locators reais da tela de pagamento (Pix copia e cola,
+  código de barras, QR code) nem do download da conta em aberto. Os testes pulam
+  (`SKIP`) automaticamente enquanto não houver conta em aberto; a lógica de validação
+  ainda precisa ser implementada e verificada contra a tela real quando houver.
+- **Persistência de e-mail inválido**: `dados_cadastrais.robot` inclui uma validação via
+  Salesforce especificamente porque, durante o desenvolvimento destes testes, uma
+  tentativa de e-mail inválido chegou a persistir no Contact mesmo exibindo a mensagem
+  de erro na tela — o que derrubou o login da conta de teste. Se você tocar nesse teste,
+  não remova essa validação.
 
 ### App mobile (`src/tests/app_mobile`)
 

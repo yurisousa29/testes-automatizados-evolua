@@ -24,6 +24,9 @@ Validar banner de indicação na home
     VALIDAR BANNER INDICACAO
 
 Validar clique no banner de indicação
-    [Documentation]    Garante que clicar no banner de indicação abre uma nova aba.
+    [Documentation]    Garante que clicar no banner de indicação abre o
+    ...    compartilhamento padrão via WhatsApp com a mensagem fixa (mesma
+    ...    mensagem/PIN do app mobile, confirmado em 2026-08-20 — mesmo backend).
     [Tags]    REGRESSAO
-    CLICAR NO BANNER INDICACAO
+    @{paginas_antes}=    CLICAR NO BANNER INDICACAO
+    VALIDAR MENSAGEM PADRAO DE INDICACAO    ${paginas_antes}
