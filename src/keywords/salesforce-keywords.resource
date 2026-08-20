@@ -30,3 +30,47 @@ EXECUTAR SOQL
     ${resultado}=    SalesforceAPI.Executar Soql    ${soql}
 
     RETURN    ${resultado}
+
+
+LISTAR CAMPOS DO OBJETO
+    [Arguments]    ${object_name}
+
+    ${resultado}=    SalesforceAPI.Listar Campos Do Objeto    ${object_name}
+
+    RETURN    ${resultado}
+
+
+BUSCAR TRANSACOES POR INSTALACAO
+    [Arguments]    ${numero_instalacao}
+
+    ${resultado}=    SalesforceAPI.Buscar Transacoes Por Instalacao    ${numero_instalacao}
+
+    RETURN    ${resultado}
+
+
+VALIDAR FATURA CONTRA SALESFORCE
+    [Arguments]    ${numero_instalacao}    ${mes_referencia}    ${ano}    ${valor_ui}
+    ...    ${vencimento_ui}    ${status_ui}    ${economia_ui}    ${sem_evolua_ui}
+
+    ${resultado}=    SalesforceAPI.Validar Fatura Contra Salesforce
+    ...    ${numero_instalacao}    ${mes_referencia}    ${ano}    ${valor_ui}
+    ...    ${vencimento_ui}    ${status_ui}    ${economia_ui}    ${sem_evolua_ui}
+
+    RETURN    ${resultado}
+
+
+BUSCAR UNIDADE CONSUMIDORA POR INSTALACAO
+    [Arguments]    ${numero_instalacao}
+
+    ${resultado}=    SalesforceAPI.Buscar Unidade Consumidora Por Instalacao    ${numero_instalacao}
+
+    RETURN    ${resultado}
+
+
+VALIDAR BANNER UNIFICACAO CONTRA SALESFORCE
+    [Arguments]    ${numero_instalacao}    ${texto_banner_ui}
+
+    ${resultado}=    SalesforceAPI.Validar Banner Unificacao Contra Salesforce
+    ...    ${numero_instalacao}    ${texto_banner_ui}
+
+    RETURN    ${resultado}
