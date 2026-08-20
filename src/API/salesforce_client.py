@@ -41,6 +41,22 @@ class SalesforceClient:
 
         return response.json()
 
+    def describe_object(self, object_name: str) -> dict:
+        """
+        Retorna metadados do objeto (campos, labels, tipos, valores de picklist).
+        Útil para descobrir o nome de API de um campo a partir do que aparece
+        na UI, sem precisar entrar no Setup do Salesforce.
+        """
+
+        response = requests.get(
+            f"{self.instance_url}/services/data/{self.API_VERSION}/sobjects/{object_name}/describe",
+            headers=self.headers,
+        )
+
+        response.raise_for_status()
+
+        return response.json()
+
     def get_object(self, object_name: str, record_id: str) -> dict:
         """
         Busca um registro pelo Id.
