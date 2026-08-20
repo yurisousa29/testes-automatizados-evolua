@@ -24,6 +24,14 @@ BUSCAR CONTRATOS POR CPF
     RETURN    ${resultado}
 
 
+BUSCAR CONTATO POR CPF
+    [Arguments]    ${cpf}
+
+    ${resultado}=    SalesforceAPI.Buscar Contato Por CPF    ${cpf}
+
+    RETURN    ${resultado}
+
+
 EXECUTAR SOQL
     [Arguments]    ${soql}
 

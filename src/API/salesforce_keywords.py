@@ -83,6 +83,41 @@ def buscar_leads_por_cpf(cpf):
     return registros
 
 
+def buscar_contato_por_cpf(cpf):
+    """
+    Retorna todos os Contacts cadastrados para o CPF informado, ordenados do
+    mais recente para o mais antigo.
+
+    Usado para validar o Portal do Titular (ex.: confirmar que uma alteração
+    de e-mail feita no portal persistiu no Salesforce). Assim como Lead e
+    Contract, pode haver mais de um Contact para o mesmo CPF.
+    """
+    _validar_conexao()
+
+    cpf_sem_formatacao = _normalizar_cpf(cpf)
+
+    soql = f"""
+        SELECT
+            Id,
+            Name,
+            Email,
+            CPFSemFormataco__c
+        FROM Contact
+        WHERE CPFSemFormataco__c = '{cpf_sem_formatacao}'
+        ORDER BY CreatedDate DESC
+    """
+
+    resultado = _client.query(soql)
+    registros = resultado.get("records", [])
+
+    if not registros:
+        raise AssertionError(
+            "Nenhum Contact encontrado no Salesforce para o CPF informado."
+        )
+
+    return registros
+
+
 def buscar_contratos_por_cpf(cpf):
     """
     Retorna todos os Contracts (contratos) cadastrados para o CPF informado,
