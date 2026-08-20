@@ -15,6 +15,9 @@ ${BTN_ENTRAR_LOGIN}               accessibility_id=Entrar
 ${BTN_ESQUECI_SENHA}              accessibility_id=Esqueci minha senha
 ${BTN_PULAR}                      accessibility_id=Pular
 ${BTN_INICIO_HOME}                accessibility_id=Início
+# Mensagem de erro (email não cadastrado OU credenciais inválidas) aparece
+# sempre como o TextView logo após o campo de senha.
+${TXT_ERRO_LOGIN}                 xpath=//android.widget.EditText[@password="true"]/following-sibling::android.widget.TextView[1]
 
 # Banner de indicação: imagem clicável sem texto/id acessível; localizado pelo
 # irmão anterior ao texto "Minhas contas", que é estável na estrutura da tela.
@@ -90,6 +93,26 @@ ${TXT_ARQUIVO_COMPARTILHADO}     id=com.android.intentresolver:id/content_previe
 ${BTN_VER_HISTORICO}          xpath=//*[starts-with(@content-desc, "Ver histórico completo de contas")]
 ${TXT_TITULO_HISTORICO}       xpath=//*[@text="Histórico completo de contas"]
 
+# Aba Indicação (menu inferior) — diferente do banner de indicação da home,
+# mas usa o mesmo compartilhamento por trás do botão "Compartilhar".
+${TAB_INDICACAO}                accessibility_id=Indicação
+${BTN_INDICAR_AMIGO}             xpath=//*[contains(@content-desc, "Indicar amigo")]
+${BTN_COMPARTILHAR_INDICACAO}    xpath=//*[contains(@content-desc, "Compartilhar")]
+${BTN_COMO_FUNCIONA_INDICACAO}   xpath=//*[contains(@content-desc, "Como funciona o Rede Evolua+?")]
+${BTN_ALTERAR_CHAVE_PIX}         xpath=//*[contains(@content-desc, "Alterar chave pix")]
+
+# Formulário "Indique um amigo" (bottom sheet): campos são irmãos do rótulo
+# correspondente, filtrados por classe pra não pegar o "*" nem o wrapper.
+${CAMPO_NOME_INDICACAO}       xpath=//*[@text="Nome da indicação:"]/following-sibling::android.widget.EditText[1]
+${CAMPO_TELEFONE_INDICACAO}   xpath=//*[@text="Telefone da indicação:"]/following-sibling::android.widget.EditText[1]
+${BTN_INDICAR_SUBMIT}         accessibility_id=Indicar
+
+${TXT_TITULO_FAQ_INDICACAO}    xpath=//*[@text="Dúvidas sobre o indique e ganhe"]
+${TXT_TITULO_CHAVE_PIX}        xpath=//*[@text="Cadastro chave Pix"]
+# Erro de validação (telefone com menos de 10 dígitos) aparece como o 2º
+# TextView irmão após o rótulo "Telefone da indicação:" (o 1º é o "*").
+${TXT_ERRO_TELEFONE_INDICACAO}    xpath=//*[@text="Telefone da indicação:"]/following-sibling::android.widget.TextView[2]
+
 # Ícone de perfil no canto superior esquerdo da home (sem texto/id acessível;
 # localizado pela posição — primeiro filho clicável do cabeçalho da home).
 ${BTN_PERFIL_HOME}              xpath=(//android.view.ViewGroup[@clickable="true"])[1]
@@ -98,6 +121,12 @@ ${TXT_NUMERO_INSTALACAO}        xpath=//*[starts-with(@text, "Instalação ")]
 
 
 *** Keywords ***
+OBTER CAMINHO DO ADB
+    ${adb_path}=    Evaluate
+    ...    os.path.join(os.environ.get("ANDROID_HOME", os.path.expanduser("~/AppData/Local/Android/Sdk")), "platform-tools", "adb.exe")
+    ...    modules=os
+    RETURN    ${adb_path}
+
 ABRIR APLICATIVO EVOLUA
     # Configuração do dispositivo/app via .env, com defaults para o emulador local padrão.
     ${appium_server}=       Set Variable    %{APPIUM_SERVER_URL=http://127.0.0.1:4723}
@@ -105,9 +134,7 @@ ABRIR APLICATIVO EVOLUA
     ${platform_version}=    Set Variable    %{ANDROID_PLATFORM_VERSION=14}
     ${app_package}=         Set Variable    %{APP_MOBILE_PACKAGE=com.evoluafrontendportal}
     ${app_activity}=        Set Variable    %{APP_MOBILE_ACTIVITY=com.evoluafrontendportal.MainActivity}
-    ${adb_path}=    Evaluate
-    ...    os.path.join(os.environ.get("ANDROID_HOME", os.path.expanduser("~/AppData/Local/Android/Sdk")), "platform-tools", "adb.exe")
-    ...    modules=os
+    ${adb_path}=    OBTER CAMINHO DO ADB
 
     &{capabilities}=    Create Dictionary
     ...    platformName=Android
@@ -147,6 +174,28 @@ FAZER LOGIN
     Input Text    ${CAMPO_EMAIL}    ${email}
     Input Text    ${CAMPO_SENHA}    ${senha}
     Click Element    ${BTN_ENTRAR_LOGIN}
+
+VALIDAR MENSAGEM DE ERRO DE LOGIN
+    [Arguments]    ${mensagem_esperada}
+    Wait Until Page Contains Element    ${TXT_ERRO_LOGIN}    timeout=10s
+    ${mensagem}=    Get Text    ${TXT_ERRO_LOGIN}
+    Should Be Equal As Strings    ${mensagem}    ${mensagem_esperada}
+    # confirma que o login realmente não foi concluído (segue na tela de login)
+    Page Should Contain Element    ${BTN_ENTRAR_LOGIN}
+
+DESATIVAR CONEXAO DE REDE
+    ${adb_path}=    OBTER CAMINHO DO ADB
+    Run Process    ${adb_path}    shell    svc    wifi    disable
+    Run Process    ${adb_path}    shell    svc    data    disable
+    Sleep    2s
+
+REATIVAR CONEXAO DE REDE
+    # Sempre chamado no teardown dos testes que desativam a rede — mesmo se o
+    # teste falhar, o emulador não pode ficar sem internet pros testes seguintes.
+    ${adb_path}=    OBTER CAMINHO DO ADB
+    Run Process    ${adb_path}    shell    svc    wifi    enable
+    Run Process    ${adb_path}    shell    svc    data    enable
+    Sleep    2s
 
 CONCLUIR LOGIN E AGUARDAR HOME
     # Após logar, o app pode mostrar 0, 1 ou 2 telas opcionais (salvar dados de
@@ -330,6 +379,57 @@ VALIDAR LISTA DE HISTORICO DE CONTAS
     # exata (varia por cliente/tempo de casa).
     ${qtd_contas}=    Get Matching Xpath Count    //*[contains(@content-desc, "Encaminhar")]
     Should Be True    ${qtd_contas} >= 2
+
+IR PARA ABA INDICACAO
+    Wait Until Page Contains Element    ${TAB_INDICACAO}    timeout=10s
+    Click Element    ${TAB_INDICACAO}
+    Wait Until Page Contains Element    ${BTN_INDICAR_AMIGO}    timeout=10s
+
+ABRIR FORMULARIO INDICAR AMIGO
+    Click Element    ${BTN_INDICAR_AMIGO}
+    Wait Until Page Contains Element    ${BTN_INDICAR_SUBMIT}    timeout=10s
+
+VALIDAR BOTAO INDICAR DESABILITADO
+    Element Should Be Disabled    ${BTN_INDICAR_SUBMIT}
+
+PREENCHER FORMULARIO INDICAR AMIGO
+    [Arguments]    ${nome}    ${telefone}
+    Input Text    ${CAMPO_NOME_INDICACAO}    ${nome}
+    Input Text    ${CAMPO_TELEFONE_INDICACAO}    ${telefone}
+
+VALIDAR TELEFONE COM MASCARA APLICADA
+    ${valor}=    Get Text    ${CAMPO_TELEFONE_INDICACAO}
+    Should Match Regexp    ${valor}    ^\\(\\d{2}\\) \\d{4,5}-\\d{4}$
+
+VALIDAR BOTAO INDICAR HABILITADO
+    Wait Until Page Contains Element    ${BTN_INDICAR_SUBMIT}    timeout=5s
+    Element Should Be Enabled    ${BTN_INDICAR_SUBMIT}
+
+VALIDAR ERRO DE TELEFONE INVALIDO
+    Wait Until Page Contains Element    ${TXT_ERRO_TELEFONE_INDICACAO}    timeout=10s
+    ${mensagem}=    Get Text    ${TXT_ERRO_TELEFONE_INDICACAO}
+    Should Be Equal As Strings    ${mensagem}    Telefone deve ter pelo menos 10 dígitos
+    Element Should Be Disabled    ${BTN_INDICAR_SUBMIT}
+
+FECHAR FORMULARIO SEM ENVIAR
+    # Não clicamos em "Indicar": isso enviaria um convite real. Fechamos com o
+    # botão de voltar do sistema.
+    Press Keycode    4
+    Wait Until Page Does Not Contain Element    ${BTN_INDICAR_SUBMIT}    timeout=10s
+
+CLICAR EM COMPARTILHAR INDICACAO
+    Wait Until Page Contains Element    ${BTN_COMPARTILHAR_INDICACAO}    timeout=10s
+    Click Element    ${BTN_COMPARTILHAR_INDICACAO}
+
+ABRIR COMO FUNCIONA INDICACAO
+    Wait Until Page Contains Element    ${BTN_COMO_FUNCIONA_INDICACAO}    timeout=10s
+    Click Element    ${BTN_COMO_FUNCIONA_INDICACAO}
+    Wait Until Page Contains Element    ${TXT_TITULO_FAQ_INDICACAO}    timeout=10s
+
+IR PARA ALTERAR CHAVE PIX
+    Wait Until Page Contains Element    ${BTN_ALTERAR_CHAVE_PIX}    timeout=10s
+    Click Element    ${BTN_ALTERAR_CHAVE_PIX}
+    Wait Until Page Contains Element    ${TXT_TITULO_CHAVE_PIX}    timeout=10s
 
 ABRIR MENU DE PERFIL
     Wait Until Page Contains Element    ${BTN_PERFIL_HOME}    timeout=10s
