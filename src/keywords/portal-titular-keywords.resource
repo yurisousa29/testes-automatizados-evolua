@@ -62,12 +62,43 @@ PULAR ETAPA DE SALVAR ACESSO
         Click    (//div[contains(text(),'Pular')])[last()]
     END
 
+SELECIONAR CPF OU CNPJ VINCULADO
+    [Documentation]    Contas com mais de um CPF/CNPJ vinculado ao mesmo login
+    ...    (comum em contas de expansão — fora de MG) mostram uma tela extra
+    ...    "Com qual você deseja seguir?" depois do login. É condicional: contas
+    ...    com um único vínculo (a maioria das testadas até 2026-08-20, todas de
+    ...    MG) não mostram essa tela — confirmado em 2026-08-28. Por padrão
+    ...    seleciona o primeiro CPF/CNPJ da lista; passe ${indice} (1 = primeiro)
+    ...    para escolher outro.
+    [Arguments]    ${indice}=1
+    ${apareceu}=    Run Keyword And Return Status
+    ...    Wait For Elements State    text=Com qual você deseja seguir?    visible    5s
+    IF    ${apareceu}
+        Click    (//div[contains(text(),'XXX.XXX')])[${indice}]
+        Click    //div[text()='Confirmar']
+        Wait For Elements State    text=Com qual você deseja seguir?    hidden    10s
+    END
+
+TROCAR PERFIL
+    [Documentation]    Alterna para outro CPF/CNPJ vinculado à mesma conta
+    ...    (recurso de contas de expansão com múltiplos vínculos — ver
+    ...    SELECIONAR CPF OU CNPJ VINCULADO). Reabre a mesma tela de seleção.
+    [Arguments]    ${indice}=1
+    Click    //div[text()='Trocar Perfil']
+    Wait For Elements State    text=Com qual você deseja seguir?    visible    10s
+    Click    (//div[contains(text(),'XXX.XXX')])[${indice}]
+    Click    //div[text()='Confirmar']
+    Wait For Elements State    text=Com qual você deseja seguir?    hidden    10s
+
 LOGIN NO PORTAL DO TITULAR
-    [Documentation]    Fluxo comum a todos os testes: autentica e pula a tela de
-    ...    "salvar dados de acesso". Usar como Test Setup da suíte, após ACESSAR PAGINA.
+    [Documentation]    Fluxo comum a todos os testes: autentica, pula a tela de
+    ...    "salvar dados de acesso" e resolve a seleção de CPF/CNPJ vinculado se
+    ...    aparecer (contas com um único vínculo simplesmente não mostram essa
+    ...    etapa). Usar como Test Setup da suíte, após ACESSAR PAGINA.
     [Arguments]    ${email}    ${password}
     REALIZAR LOGIN PORTAL DO TITULAR    ${email}    ${password}
     PULAR ETAPA DE SALVAR ACESSO
+    SELECIONAR CPF OU CNPJ VINCULADO
 
 ENCERRAR TESTE PORTAL DO TITULAR
     [Documentation]    Fecha todos os browsers ao final do teste, mesmo em caso de
@@ -108,11 +139,26 @@ URL DA PAGINA NAO DEVE ESTAR VAZIA
     Should Not Be Empty    ${url}
 
 ACESSAR DADOS CADASTRAIS
-    Wait For Elements State    //div[contains(text(),'Perfil')]    visible    10s
-    Click    //div[contains(text(),'Perfil')]
+    [Documentation]    Abre "Dados cadastrais" e expande o card do titular (o
+    ...    primeiro da lista — confirmado em 2026-08-28 que corresponde ao login
+    ...    atual) para revelar os campos de e-mail/telefone.
+    ...
+    ...    NOTA: a tela deixou de mostrar o campo de e-mail direto — hoje é uma
+    ...    lista de contatos, cada um colapsado por padrão, com um botão
+    ...    "chevron" (div arredondado sem ícone/svg identificável, canto
+    ...    superior direito do card) que expande/recolhe.
+    ...
+    ...    Locator "Perfil" com texto exato (não contains): em contas de
+    ...    expansão, "Trocar Perfil" também contém a substring "Perfil".
+    Wait For Elements State    //div[text()='Perfil']    visible    10s
+    Click    //div[text()='Perfil']
 
     Wait For Elements State    //div[contains(text(),'Dados cadastrais')]    visible    10s
     Click    //div[contains(text(),'Dados cadastrais')]
+
+    Wait For Elements State    (//input[@placeholder='Digite seu nome completo'])[1]    visible    10s
+    Click    (//div[contains(@class,'rounded-full') and contains(@class,'right-4') and contains(@class,'top-4')])[1]
+    Wait For Elements State    //input[@placeholder='Digite seu e-mail']    visible    10s
 
 ALTERAR EMAIL DO TITULAR
     [Arguments]    ${novo_email}
@@ -239,16 +285,26 @@ VALIDAR MENSAGEM PADRAO DE INDICACAO
 # ---------------------------------------------------------------------------
 
 ABRIR MENU DE PERFIL
-    Wait For Elements State    //div[contains(text(),'Perfil')]    visible    10s
-    Click    //div[contains(text(),'Perfil')]
+    [Documentation]    Locator com texto exato ("Perfil", não contains) —
+    ...    confirmado em 2026-08-28: em contas de expansão com múltiplos
+    ...    CPF/CNPJ, o botão "Trocar Perfil" também aparece no cabeçalho e
+    ...    "contains(text(),'Perfil')" vira ambíguo (strict mode do Playwright).
+    Wait For Elements State    //div[text()='Perfil']    visible    10s
+    Click    //div[text()='Perfil']
 
 IR PARA RENOMEAR INSTALACAO
+    [Documentation]    Indexado em [1]: contas de expansão podem ter várias
+    ...    instalações listadas nessa tela (ver OBTER NUMERO DA INSTALACAO).
     Wait For Elements State    //div[contains(text(),'Renomear instala')]    visible    10s
     Click    //div[contains(text(),'Renomear instala')]
-    Wait For Elements State    //div[starts-with(text(),'Instalação ')]    visible    10s
+    Wait For Elements State    (//div[starts-with(text(),'Instalação ')])[1]    visible    10s
 
 OBTER NUMERO DA INSTALACAO
-    ${texto}=    Get Text    //div[starts-with(text(),'Instalação ')]
+    [Documentation]    Retorna o número da PRIMEIRA instalação da lista. Contas de
+    ...    expansão podem ter várias instalações vinculadas ao mesmo perfil
+    ...    (confirmado em 2026-08-28: uma conta de teste tinha 6) — diferente de
+    ...    MG, onde as contas testadas até aqui têm só uma.
+    ${texto}=    Get Text    (//div[starts-with(text(),'Instalação ')])[1]
     ${numero}=    Evaluate    '''${texto}'''.replace('Instalação ', '').strip()
     RETURN    ${numero}
 
@@ -371,6 +427,92 @@ CONTA EM ABERTO EXISTE
     ...    Wait For Elements State    text=Nenhuma conta em aberto encontrada    visible    5s
     ${existe}=    Evaluate    not ${sem_conta}
     RETURN    ${existe}
+
+CLICAR EM PAGAR CONTA
+    Wait For Elements State    //div[text()='Pagar conta']    visible    10s
+    Click    //div[text()='Pagar conta']
+    Wait For Elements State    text=Escolha a forma de pagamento:    visible    10s
+
+VALIDAR OPCOES DE PAGAMENTO DISPONIVEIS
+    [Documentation]    Confirma as 3 opções de pagamento da conta em aberto —
+    ...    mesmas opções e mesmos nomes do app mobile (Pix copia e cola, Código
+    ...    de barras, Pix QR code). "Pix copia e cola" e "Código de barras" só
+    ...    copiam para a área de transferência (sem mudança visual na tela) —
+    ...    por isso só validamos que estão habilitadas, sem tentar ler o
+    ...    clipboard.
+    Wait For Elements State    //div[text()='Pix copia e cola']    visible    10s
+    Get Element States    //div[text()='Pix copia e cola']    contains    enabled
+    Wait For Elements State    //div[text()='Código de barras']    visible    5s
+    Get Element States    //div[text()='Código de barras']    contains    enabled
+    Wait For Elements State    //div[text()='Pix QR code']    visible    5s
+    Get Element States    //div[text()='Pix QR code']    contains    enabled
+
+ABRIR PIX QR CODE
+    Click    //div[text()='Pix QR code']
+    Wait For Elements State    text=Realize o pagamento    visible    10s
+
+FECHAR MODAL QR CODE
+    [Documentation]    Fecha com ESC — assim como os outros modais deste app,
+    ...    não há um "X" com locator estável (nenhum <svg> identificável perto do
+    ...    modal, confirmado em 2026-08-28). Não há input focado aqui, então,
+    ...    diferente do modal "Indique um amigo", ESC funciona direto.
+    Keyboard Key    press    Escape
+    Wait For Elements State    text=Realize o pagamento    hidden    10s
+
+BAIXAR CONTA EVOLUA
+    [Documentation]    Clica em "Baixar conta" (card de conta em aberto ou item do
+    ...    histórico) e confirma que um PDF de verdade foi baixado, no padrão
+    ...    "Conta Evolua-<Mês>-<Ano>.pdf" — mesmo padrão de nome já usado no app
+    ...    mobile para o arquivo compartilhado.
+    ${promise}=    Promise To Wait For Download
+    Click    (//div[text()='Baixar conta'])[1]
+    Wait For All Promises
+    ${info}=    Evaluate    $promise.result()
+    Should Be Equal As Strings    ${info}[state]    finished
+    Should Match Regexp    ${info}[suggestedFilename]    ^Conta Evolua-\\w+-\\d{4}\\.pdf$
+    RETURN    ${info}[suggestedFilename]
+
+OBTER NOME DA DISTRIBUIDORA
+    [Documentation]    Lê o nome da distribuidora exibido no link "Visualizar
+    ...    conta da <distribuidora>" da conta em aberto, em vez de fixar um nome —
+    ...    varia por região (ex.: NEOENERGIA RIO GRANDE DO NORTE, CEMIG, etc.).
+    ...
+    ...    NOTA (2026-08-28): buscar por "qualquer elemento com classe underline"
+    ...    é ambíguo — o botão "Trocar Perfil" do cabeçalho também usa essa
+    ...    classe e aparecia primeiro no DOM. Por isso ancoramos no rótulo
+    ...    "Visualizar conta da" e pegamos o irmão seguinte, não a classe CSS.
+    ${nome}=    Evaluate JavaScript    ${None}    (() => {
+    ...    var label = Array.from(document.querySelectorAll('div')).find(function(d){
+    ...    return d.children.length === 0 && /Visualizar\\s*conta\\s*da/i.test(d.innerText || '');
+    ...    });
+    ...    if (!label || !label.nextElementSibling) return '';
+    ...    return label.nextElementSibling.innerText.trim();
+    ...    })()
+    Should Not Be Empty    ${nome}    Não encontrei o nome da distribuidora na tela — a conta em aberto tem conta separada da distribuidora?
+    RETURN    ${nome}
+
+VALIDAR AVISO DE NAO PAGAR DISTRIBUIDORA
+    [Documentation]    Confirma o aviso exibido no modal de pagamento em contas
+    ...    unificadas fora de MG: pagar a fatura da Evolua já inclui o valor da
+    ...    distribuidora, então pagar as duas geraria duplicidade. Esse aviso é
+    ...    específico de contas de expansão com conta da distribuidora separada.
+    Wait For Elements State    //div[contains(text(),'Não pague a conta da distribuidora')]    visible    10s
+
+BAIXAR CONTA DA DISTRIBUIDORA
+    [Documentation]    Clica em "Visualizar conta da <distribuidora>" (só existe em
+    ...    contas não unificadas/parcialmente unificadas fora de MG, onde a
+    ...    distribuidora local emite conta separada da Evolua) e confirma que um
+    ...    PDF de verdade foi baixado ("Fatura Distribuidora.pdf"). O nome da
+    ...    distribuidora varia por região (ex.: NEOENERGIA RIO GRANDE DO NORTE) —
+    ...    por isso é parametrizado, não fixo.
+    [Arguments]    ${nome_distribuidora}
+    ${promise}=    Promise To Wait For Download
+    Click    //*[contains(text(),'${nome_distribuidora}')]
+    Wait For All Promises
+    ${info}=    Evaluate    $promise.result()
+    Should Be Equal As Strings    ${info}[state]    finished
+    Should Contain    ${info}[suggestedFilename]    Fatura Distribuidora
+    RETURN    ${info}[suggestedFilename]
 
 IR PARA HISTORICO COMPLETO DE CONTAS
     Wait For Elements State    //div[contains(text(),'Ver hist') and contains(text(),'rico completo de contas')]    visible    10s

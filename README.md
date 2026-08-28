@@ -30,11 +30,34 @@ mensagens de erro e regras de negócio na maioria dos fluxos.
 Variáveis de ambiente:
 
 - `URL_PORTAL_TITULAR` — URL do Portal do Titular (ex.: `https://portal-hml.evoluaenergia.com.br/`)
-- `EMAIL_PORTAL_TITULAR` / `PASSWORD_PORTAL_TITULAR` — credenciais de um usuário de teste válido
+- `EMAIL_PORTAL_TITULAR` / `PASSWORD_PORTAL_TITULAR` — credenciais de uma conta de teste PF de
+  **Minas Gerais**
 - `CPF_TITULAR` — CPF (com ou sem formatação) do titular usado para login, necessário para
   localizar o Contact correspondente no Salesforce e validar que a alteração de e-mail persistiu
 - `PORTAL_EMAIL_TESTE` — opcional, e-mail usado no teste de alteração cadastral com sucesso
   (tem um default gerado por Faker se não definida)
+- `EMAIL_PORTAL_TITULAR_EXPANSAO` / `PASSWORD_PORTAL_TITULAR_EXPANSAO` — credenciais de uma conta
+  de teste PF de **expansão** (qualquer estado fora de MG — o comportamento é o mesmo entre eles,
+  confirmado em 2026-08-28), com pelo menos 2 CPF/CNPJ vinculados e pelo menos 1 deles com fatura
+  em aberto
+- `CPF_TITULAR_EXPANSAO` — reservado para uma futura validação via Salesforce equivalente à de
+  `dados_cadastrais.robot`, ainda não implementada para o segmento de expansão
+
+#### Segmentos: Minas Gerais x Expansão
+
+O Portal do Titular tem dois comportamentos de conta bem diferentes, cobertos por arquivos
+separados (mesmo backend, resource de keywords compartilhado):
+
+- **Minas Gerais** (`EMAIL_PORTAL_TITULAR`): um único CPF/CNPJ e uma única instalação por login,
+  conta unificada mostrando só a fatura da Evolua.
+- **Expansão** (`EMAIL_PORTAL_TITULAR_EXPANSAO`, arquivos `expansao_*.robot`): a distribuidora
+  local emite conta própria, separada da Evolua, mesmo em conta "unificada" — o portal oferece um
+  link dedicado para baixar essa segunda conta em PDF ("Visualizar conta da `<distribuidora>`"), e
+  o modal de pagamento avisa para não pagar as duas (duplicidade). Login pode pedir seleção de
+  CPF/CNPJ vinculado ("Com qual você deseja seguir?") quando há mais de um vínculo na conta, com
+  um seletor "Trocar Perfil" para alternar depois. Um mesmo perfil pode ter várias instalações
+  vinculadas (uma conta de teste tinha 6, confirmado em 2026-08-28) — `OBTER NUMERO DA INSTALACAO`
+  sempre pega a primeira da lista.
 
 Arquivos de teste:
 
@@ -48,28 +71,39 @@ Arquivos de teste:
 | `instalacao.robot` | número de instalação via Perfil → Renomear instalação |
 | `contas_unificacao.robot` | banner de unificação de contas, validado via Salesforce |
 | `contas_historico.robot` | histórico completo de contas |
-| `contas_pagamento.robot` / `contas_encaminhar.robot` | ⚠️ pendentes — ver limitação abaixo |
+| `contas_pagamento.robot` | opções de pagamento (Pix copia e cola, código de barras, QR code) |
+| `contas_encaminhar.robot` | download do PDF da conta Evolua ("Baixar conta") |
 | `indicacao_tab_indicar_amigo.robot` | formulário "Indique um amigo" (habilitação, máscara, validação) |
 | `indicacao_tab_compartilhar.robot` | botão "Compartilhar" da aba Indicação |
 | `indicacao_tab_faq.robot` | "Como funciona o Rede Evolua+?" |
 | `indicacao_tab_chave_pix.robot` | navegação até "Alterar chave pix" (não submete dados) |
+| `expansao_login.robot` | seleção de CPF/CNPJ vinculado no login + "Trocar Perfil" |
+| `expansao_contas.robot` | download do PDF da distribuidora + aviso de duplicidade de pagamento + texto do banner de unificação |
 
-#### ⚠️ Limitações conhecidas (2026-08-20)
+`contas_pagamento.robot` e `contas_encaminhar.robot` pulam (`SKIP`) automaticamente quando a
+conta configurada não tem fatura em aberto no momento — isso é esperado para MG na maioria das
+execuções; a lógica em si já foi verificada contra uma conta de expansão com fatura real.
 
-- **Aba "Consumo" da 2ª via**: ficou travada num spinner infinito em execuções manuais
-  contra homologação. `IR PARA ABA CONSUMO` só confirma a navegação, sem validar os
+#### ⚠️ Limitações conhecidas
+
+- **Aba "Consumo" da 2ª via** (2026-08-20): ficou travada num spinner infinito em execuções
+  manuais contra homologação. `IR PARA ABA CONSUMO` só confirma a navegação, sem validar os
   valores exibidos — investigar antes de fortalecer essa validação.
-- **`contas_pagamento.robot` / `contas_encaminhar.robot`**: a conta de teste configurada
-  não tinha nenhuma conta em aberto no momento em que esses testes foram escritos, então
-  não foi possível confirmar os locators reais da tela de pagamento (Pix copia e cola,
-  código de barras, QR code) nem do download da conta em aberto. Os testes pulam
-  (`SKIP`) automaticamente enquanto não houver conta em aberto; a lógica de validação
-  ainda precisa ser implementada e verificada contra a tela real quando houver.
 - **Persistência de e-mail inválido**: `dados_cadastrais.robot` inclui uma validação via
   Salesforce especificamente porque, durante o desenvolvimento destes testes, uma
   tentativa de e-mail inválido chegou a persistir no Contact mesmo exibindo a mensagem
   de erro na tela — o que derrubou o login da conta de teste. Se você tocar nesse teste,
   não remova essa validação.
+- **Tela "Dados cadastrais" muda com frequência** (2026-08-28): já foi um campo de e-mail direto,
+  hoje é uma lista de contatos colapsados (cada um com nome/e-mail/telefone, expandidos por um
+  botão sem ícone/svg identificável — ver `ACESSAR DADOS CADASTRAIS` no resource). Se este teste
+  voltar a quebrar em "aguardando input de e-mail", é provável que o layout tenha mudado de novo —
+  inspecionar a tela real antes de tentar corrigir o locator às cegas.
+- **Regex em `Evaluate`/`Should Match Regexp` dentro deste resource**: sempre usar `\\d`, `\\s`,
+  `\\w` (barra dupla) no código-fonte, nunca `\d`/`\s`/`\w` (barra simples) — o Robot Framework
+  remove uma camada de escape antes do valor chegar no regex, então uma barra simples vira a letra
+  solta (`\d` → `d`) e o regex nunca casa. Já causou bugs silenciosos em pelo menos 3 keywords
+  diferentes neste arquivo.
 
 ### App mobile (`src/tests/app_mobile`)
 

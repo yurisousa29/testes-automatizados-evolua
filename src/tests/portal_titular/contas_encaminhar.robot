@@ -1,16 +1,15 @@
 *** Settings ***
-Documentation      Valida o download/encaminhamento da conta em aberto (aba Contas).
-...                Equivalente web de src/tests/app_mobile/contas_encaminhar.robot
-...                (o mobile usa compartilhamento nativo de PDF; o web usa
-...                download via o botão "Baixar conta" — ver diferença documentada
-...                em VALIDAR LISTA DE HISTORICO DE CONTAS no resource).
+Documentation      Valida o download da conta em aberto (aba Contas). Equivalente
+...                web de src/tests/app_mobile/contas_encaminhar.robot (o mobile
+...                usa compartilhamento nativo de PDF; o web usa download direto
+...                via o botão "Baixar conta" — ver BAIXAR CONTA EVOLUA no
+...                resource).
 ...
-...                LIMITAÇÃO CONHECIDA (2026-08-20): mesma da contas_pagamento.robot
-...                — a conta de teste não tem conta em aberto no momento, então
-...                não foi possível confirmar se "Baixar conta" também aparece
-...                para uma conta em aberto (só verificamos no histórico, onde
-...                todas as contas já estão "Pago"). O teste pula com um aviso
-...                claro enquanto não houver conta em aberto.
+...                Verificado em 2026-08-28 contra uma conta de expansão (PF fora
+...                de MG) que tinha uma fatura em aberto de verdade — a conta de
+...                MG configurada neste arquivo pode não ter conta em aberto no
+...                momento da execução, por isso o teste pula (SKIP) quando não
+...                houver, em vez de falhar.
 Library            ../../../load_env.py
 Resource           ../../common/generic-keywords.resource
 Resource           ../../keywords/portal-titular-keywords.resource
@@ -24,13 +23,12 @@ Login comum no portal do titular
 
 *** Test Cases ***
 Baixar conta em aberto gera o PDF correto
-    [Documentation]    Pula com aviso se não houver conta em aberto no momento
-    ...    (ver limitação conhecida acima) — a lógica de validação em si ainda
-    ...    precisa ser implementada e verificada contra a tela real.
-    [Tags]    REGRESSAO    PENDENTE
+    [Documentation]    Pula com aviso se não houver conta em aberto no momento.
+    [Tags]    REGRESSAO
     IR PARA ABA CONTAS
     ${existe}=    CONTA EM ABERTO EXISTE
     IF    not ${existe}
-        Skip    Nenhuma conta em aberto no momento (ver limitação conhecida na documentação deste arquivo).
+        Skip    Nenhuma conta em aberto no momento para esta conta de teste.
     END
-    Fail    Implementar e verificar contra a tela real assim que houver conta em aberto disponível (ver documentação deste arquivo).
+    ${nome_arquivo}=    BAIXAR CONTA EVOLUA
+    Log To Console    ✓ Conta baixada: ${nome_arquivo}
