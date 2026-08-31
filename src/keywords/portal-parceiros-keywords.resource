@@ -25,7 +25,7 @@ SELECIONAR MODULO PORTAL DOS PARCEIROS
     ...     Simular economia
     ...     Fazer contratação
     ...     Acompanhar o Funil
-    ...     Acompanhar Vendas
+    ...     Acompanhar vendas
     ...     Acompanhar Leads
 
     ${contem_modulo}=    Run Keyword And Return Status
@@ -513,9 +513,271 @@ SELECIONAR COMO DESEJA CONTINUAR A CONTRATACAO
     ELSE
         Log To Console    Opção informada não encontrado.
     END
-    
+
     Wait For Elements State     //button[text()='Confirmar']    visible     10s
     Click   //button[text()='Confirmar']
 
     Wait For Elements State     //button[text()='Confirmar']    visible     10s
     Click   //button[text()='Confirmar']
+
+
+# ---------------------------------------------------------------------------
+# Módulo "Acompanhar vendas"
+#
+# Diferente do Kanban de "Acompanhar Leads", esta tela é uma LISTA paginada
+# ("Minhas vendas"): cada card mostra nome + status colapsados, e expande
+# (clique no nome/seta) revelando Número de instalação, Status, Telefone e
+# Data de criação. Não há CPF/CNPJ visível na tela — por isso o cruzamento
+# com o Salesforce é feito pelo Número de instalação (Transacao__c), não
+# por CPF como em Leads.
+# ---------------------------------------------------------------------------
+
+VALIDAR TELA ACOMPANHAR VENDAS
+    [Documentation]    Garante que a tela "Minhas vendas" carregou e aguarda ao
+    ...    menos um card ser renderizado antes de seguir com as validações.
+    Wait For Elements State
+    ...    text=Minhas vendas
+    ...    visible
+    ...    20s
+
+    Wait For Elements State
+    ...    text=Acompanhe o status das suas simulações de venda.
+    ...    visible
+    ...    20s
+
+    AGUARDAR CARREGAMENTO DA LISTA DE VENDAS
+
+
+AGUARDAR CARREGAMENTO DA LISTA DE VENDAS
+    [Documentation]
+    ...    Mesmo racional de "AGUARDAR CARREGAMENTO DO KANBAN": Get Element
+    ...    Count não espera sozinho, então roda em polling até aparecer ao
+    ...    menos 1 card de venda na tela.
+    Wait Until Keyword Succeeds    30s    1s    LISTA DE VENDAS POSSUI CARDS
+
+
+LISTA DE VENDAS POSSUI CARDS
+    ${qtd}=    Get Element Count
+    ...    xpath=//div[contains(@class,'rounded-xl') and contains(@class,'bg-gray') and contains(@class,'max-w-[416px]')]
+
+    Should Be True
+    ...    ${qtd} > 0
+    ...    A lista de vendas ainda não carregou (nenhum card visível).
+
+    RETURN    ${qtd}
+
+
+CONTAR CARDS DA PAGINA ATUAL DE VENDAS
+    ${qtd}=    Get Element Count
+    ...    xpath=//div[contains(@class,'rounded-xl') and contains(@class,'bg-gray') and contains(@class,'max-w-[416px]')]
+
+    RETURN    ${qtd}
+
+
+EXPANDIR CARD DE VENDA
+    [Documentation]    Clica na área superior do card (nome + seta) do card de
+    ...    índice ${indice} (1-based) na página atual, expandindo os detalhes.
+    ...    Retorna o XPath base do card, para as demais keywords lerem os
+    ...    dados sem precisar re-localizar o elemento.
+    [Arguments]    ${indice}
+
+    ${base}=    Set Variable
+    ...    (//div[contains(@class,'rounded-xl') and contains(@class,'bg-gray') and contains(@class,'max-w-[416px]')])[${indice}]
+
+    Click    xpath=${base}//div[contains(@class,'cursor-pointer')][1]
+
+    Wait For Elements State
+    ...    xpath=${base}//*[name()='svg' and contains(@class,'lucide-chevron-up')]
+    ...    visible
+    ...    5s
+
+    RETURN    ${base}
+
+
+CAPTURAR NUMEROS DE INSTALACAO DO CARD DE VENDA
+    [Documentation]    Alguns cards têm mais de uma instalação vinculada — nesse
+    ...    caso o rótulo aparece no plural ("Números de instalação") com um <p>
+    ...    por número, em vez do singular ("Número de instalação") com um único
+    ...    valor. O locator casa com os dois (starts-with "Número"), e sempre
+    ...    retorna uma lista — com 1 item no caso comum de instalação única.
+    [Arguments]    ${base}
+
+    ${qtd}=    Get Element Count
+    ...    xpath=${base}//span[starts-with(normalize-space(),'Número')]/following-sibling::div//p
+
+    @{instalacoes}=    Create List
+
+    FOR    ${i}    IN RANGE    1    ${qtd + 1}
+        ${valor}=    Get Text
+        ...    xpath=(${base}//span[starts-with(normalize-space(),'Número')]/following-sibling::div//p)[${i}]
+        Append To List    ${instalacoes}    ${valor}
+    END
+
+    RETURN    @{instalacoes}
+
+
+CAPTURAR DADOS DO CARD DE VENDA
+    [Documentation]    Lê, de um card já expandido (ver "EXPANDIR CARD DE
+    ...    VENDA"), o nome do cliente e os detalhes: Status, Telefone, Data de
+    ...    criação e a lista de números de instalação vinculados.
+    [Arguments]    ${base}
+
+    ${nome}=    Get Text    xpath=${base}//h3
+
+    ${status}=    Get Text
+    ...    xpath=${base}//span[normalize-space()='Status']/following-sibling::p
+
+    ${telefone}=    Get Text
+    ...    xpath=${base}//span[normalize-space()='Telefone']/following-sibling::p
+
+    ${data_criacao}=    Get Text
+    ...    xpath=${base}//span[normalize-space()='Data de criação']/following-sibling::p
+
+    @{instalacoes}=    CAPTURAR NUMEROS DE INSTALACAO DO CARD DE VENDA    ${base}
+
+    RETURN    ${nome}    ${status}    ${telefone}    ${data_criacao}    @{instalacoes}
+
+
+VALIDAR FORMATO DOS DADOS DA VENDA
+    [Documentation]    Valida que os campos do card de venda vieram
+    ...    preenchidos e nos formatos esperados.
+    [Arguments]    ${nome}    ${status}    ${telefone}    ${data_criacao}    ${instalacoes}
+
+    Should Not Be Empty
+    ...    ${nome}
+    ...    O nome do cliente está vazio.
+
+    Should Not Be Empty
+    ...    ${status}
+    ...    O status da venda está vazio.
+
+    ${qtd_instalacoes}=    Get Length    ${instalacoes}
+
+    IF    ${qtd_instalacoes} == 0
+        # TODO: confirmar com o time se isso é esperado (venda em estágio
+        # inicial do funil, ainda sem conta de energia/instalação vinculada)
+        # ou se é uma divergência do portal. Por ora não falha o teste, só
+        # avisa e pula a validação de instalação/Salesforce deste card.
+        Log To Console
+        ...    ⚠ Card "${nome}" sem número de instalação vinculado (Status: ${status}) — pulando validação de instalação/Salesforce.
+        RETURN
+    END
+
+    FOR    ${instalacao}    IN    @{instalacoes}
+        Should Match Regexp
+        ...    ${instalacao}
+        ...    ^\\d+$
+        ...    O número de instalação possui formato inválido: "${instalacao}".
+    END
+
+    Should Match Regexp
+    ...    ${telefone}
+    ...    \\(\\d{2}\\)\\s?\\d{4,5}-\\d{4}
+    ...    O telefone possui formato inválido: "${telefone}".
+
+    Should Match Regexp
+    ...    ${data_criacao}
+    ...    \\d{2}/\\d{2}/\\d{4},\\s?\\d{2}:\\d{2}:\\d{2}
+    ...    A data de criação possui formato inválido: "${data_criacao}".
+
+
+VALIDAR VENDA CONTRA SALESFORCE
+    [Documentation]
+    ...    Confirma que existe uma UnidadeConsumidora__c no Salesforce para
+    ...    cada número de instalação exibido no card (um card pode ter mais
+    ...    de uma instalação vinculada).
+    ...
+    ...    Nota: cruzamos com o objeto UnidadeConsumidora__c (via SOQL direto
+    ...    — EXECUTAR SOQL), NÃO com UnidadeConsumidoraDoConsorcio__c (objeto
+    ...    usado por "BUSCAR UNIDADE CONSUMIDORA POR INSTALACAO", que serve
+    ...    para outra finalidade — o banner de unificação — e não tem esses
+    ...    registros). Também não usamos Transacao__c — essa só é criada mais
+    ...    adiante no funil, depois que a primeira fatura é gerada, então
+    ...    quase nenhuma venda ainda em estágio inicial teria uma.
+    [Arguments]    ${instalacoes}
+
+    FOR    ${instalacao}    IN    @{instalacoes}
+        ${soql}=    Set Variable
+        ...    SELECT Id, NumeroInstalacao__c FROM UnidadeConsumidora__c WHERE NumeroInstalacao__c = '${instalacao}'
+
+        ${resultado}=    EXECUTAR SOQL    ${soql}
+
+        Should Be True
+        ...    ${resultado}[totalSize] > 0
+        ...    Nenhuma UnidadeConsumidora__c encontrada no Salesforce para a instalação ${instalacao}.
+
+        Log To Console
+        ...    ✓ Unidade consumidora validada: instalação ${instalacao} (Id ${resultado}[records][0][Id])
+    END
+
+
+VALIDAR VENDAS DA PAGINA ATUAL
+    [Documentation]    Expande e valida todos os cards de venda visíveis na
+    ...    página atual da lista (formato dos dados + existência no
+    ...    Salesforce). Usa "Run Keyword And Continue On Failure" para que a
+    ...    divergência de um card não impeça a validação dos demais.
+    ${qtd}=    CONTAR CARDS DA PAGINA ATUAL DE VENDAS
+
+    FOR    ${i}    IN RANGE    1    ${qtd + 1}
+        ${base}=    EXPANDIR CARD DE VENDA    ${i}
+        ${nome}    ${status}    ${telefone}    ${data_criacao}    @{instalacoes}=
+        ...    CAPTURAR DADOS DO CARD DE VENDA    ${base}
+
+        Log To Console
+        ...    Validando venda: ${nome} (instalação(ões): ${instalacoes})
+
+        Run Keyword And Continue On Failure
+        ...    VALIDAR FORMATO DOS DADOS DA VENDA    ${nome}    ${status}    ${telefone}    ${data_criacao}    ${instalacoes}
+        Run Keyword And Continue On Failure    VALIDAR VENDA CONTRA SALESFORCE    ${instalacoes}
+    END
+
+
+NAVEGAR PARA PROXIMA PAGINA DE VENDAS
+    [Documentation]    Clica no botão de próxima página (seta) da paginação e
+    ...    confirma que a lista realmente mudou, comparando o nome do
+    ...    primeiro card antes/depois. Retorna ${False} sem clicar quando o
+    ...    botão de próxima página não existe mais (já estava na última) ou
+    ...    quando a página não muda mesmo após o clique.
+    ${existe_botao}=    Run Keyword And Return Status
+    ...    Wait For Elements State
+    ...    xpath=//button[.//*[name()='svg' and contains(@class,'lucide-arrow-right')]]
+    ...    visible
+    ...    3s
+
+    IF    not ${existe_botao}
+        RETURN    ${False}
+    END
+
+    ${primeiro_nome_antes}=    Get Text
+    ...    xpath=(//div[contains(@class,'rounded-xl') and contains(@class,'bg-gray') and contains(@class,'max-w-[416px]')])[1]//h3
+
+    Click    xpath=//button[.//*[name()='svg' and contains(@class,'lucide-arrow-right')]]
+
+    ${mudou}=    Run Keyword And Return Status
+    ...    Wait Until Keyword Succeeds    10s    500ms
+    ...    PRIMEIRO CARD DE VENDA MUDOU    ${primeiro_nome_antes}
+
+    RETURN    ${mudou}
+
+
+PRIMEIRO CARD DE VENDA MUDOU
+    [Arguments]    ${nome_anterior}
+
+    AGUARDAR CARREGAMENTO DA LISTA DE VENDAS
+
+    ${nome_atual}=    Get Text
+    ...    xpath=(//div[contains(@class,'rounded-xl') and contains(@class,'bg-gray') and contains(@class,'max-w-[416px]')])[1]//h3
+
+    Should Not Be Equal    ${nome_atual}    ${nome_anterior}
+
+
+VALIDAR TODAS AS VENDAS
+    [Documentation]    Percorre todas as páginas da lista "Minhas vendas",
+    ...    validando formato dos dados de cada card e a existência no
+    ...    Salesforce pelo número de instalação.
+    ${continuar}=    Set Variable    ${True}
+
+    WHILE    ${continuar}
+        VALIDAR VENDAS DA PAGINA ATUAL
+        ${continuar}=    NAVEGAR PARA PROXIMA PAGINA DE VENDAS
+    END

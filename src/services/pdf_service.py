@@ -1,3 +1,5 @@
+import os
+
 from PIL import Image
 from reportlab.pdfgen import canvas
 from reportlab.lib.colors import white
@@ -20,6 +22,11 @@ def gerar_pdf(
 
     # Largura e altura de imagem
     largura, altura = Image.open(template).size
+
+    # src/docs/ fica no .gitignore (pasta de saída gerada, não versionada) —
+    # num clone novo ela ainda não existe, então o Canvas falharia com
+    # FileNotFoundError ao tentar abrir o arquivo dentro dela.
+    os.makedirs(os.path.dirname(arquivo_saida), exist_ok=True)
 
     # Criar PDF com o mesmo tamanho da imagem
     pdf = canvas.Canvas(arquivo_saida, pagesize=(largura, altura))

@@ -362,7 +362,10 @@ VALIDAR ABA PAGAMENTO
     ...    innerText do menor ancestral que contém título+Vencimento+economia,
     ...    em vez de XPath sibling/ancestor.
     [Arguments]    ${mes}    ${ano}
-    Wait For Elements State    text=Pagamento da conta    visible    10s
+    # Aspas no locator "text=" força match exato (não substring) — sem elas,
+    # esse locator também batia num parágrafo não relacionado que contém
+    # "pagamento da conta" como parte do texto ("strict mode violation").
+    Wait For Elements State    text="Pagamento da conta"    visible    10s
     Wait For Elements State    text=${mes}/${ano}    visible    10s
 
     ${texto_card}=    Evaluate JavaScript    ${None}    (() => {
@@ -382,8 +385,10 @@ VALIDAR ABA PAGAMENTO
     ...    })()
     Should Not Be Empty    ${texto_card}    Não foi possível localizar o card de pagamento na página.
 
-    Should Match Regexp    ${texto_card}    (?i)\\bPago\\b|Pendente|Vencid
-    ${status}=    Evaluate    re.search(r'(?i)Pago|Pendente|Vencid\\w*', '''${texto_card}''').group(0)    modules=re
+    # "Em aberto" adicionado em 2026-08-31 — status real observado na conta
+    # de teste atual, além dos 3 já previstos (Pago/Pendente/Vencido).
+    Should Match Regexp    ${texto_card}    (?i)\\bPago\\b|Pendente|Vencid|Em aberto
+    ${status}=    Evaluate    re.search(r'(?i)Pago|Pendente|Vencid\\w*|Em aberto', '''${texto_card}''').group(0)    modules=re
 
     ${valor}=    Evaluate    re.search(r'R\\$\\s?[\\d.]+,\\d{2}', '''${texto_card}'''.split('Vencimento')[0]).group(0)    modules=re
 
@@ -429,8 +434,11 @@ CONTA EM ABERTO EXISTE
     RETURN    ${existe}
 
 CLICAR EM PAGAR CONTA
-    Wait For Elements State    //div[text()='Pagar conta']    visible    10s
-    Click    //div[text()='Pagar conta']
+    # [1] porque pode haver mais de uma conta em aberto ao mesmo tempo (cada
+    # uma com seu próprio botão "Pagar conta") — sem indexação, o locator
+    # bate em mais de um elemento e o Playwright falha em modo estrito.
+    Wait For Elements State    (//div[text()='Pagar conta'])[1]    visible    10s
+    Click    (//div[text()='Pagar conta'])[1]
     Wait For Elements State    text=Escolha a forma de pagamento:    visible    10s
 
 VALIDAR OPCOES DE PAGAMENTO DISPONIVEIS
@@ -464,7 +472,15 @@ BAIXAR CONTA EVOLUA
     ...    histórico) e confirma que um PDF de verdade foi baixado, no padrão
     ...    "Conta Evolua-<Mês>-<Ano>.pdf" — mesmo padrão de nome já usado no app
     ...    mobile para o arquivo compartilhado.
-    ${promise}=    Promise To Wait For Download
+    ...
+    ...    NOTA (2026-08-31): o timeout padrão (10s) não é sempre suficiente —
+    ...    a geração do PDF no servidor pode demorar mais que isso. O timeout
+    ...    que estoura aqui é o de esperar o evento "download" COMEÇAR (não o
+    ...    de "download_timeout", que só vale para esperar ele TERMINAR) —
+    ...    por isso o ajuste é via "Set Browser Timeout" (escopo Test, volta
+    ...    ao normal sozinho no fim do teste), não via argumento da keyword.
+    Set Browser Timeout    30s    scope=Test
+    ${promise}=    Promise To Wait For Download    download_timeout=30s
     Click    (//div[text()='Baixar conta'])[1]
     Wait For All Promises
     ${info}=    Evaluate    $promise.result()

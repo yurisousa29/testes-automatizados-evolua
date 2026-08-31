@@ -165,7 +165,10 @@ ANEXAR DOCUMENTACAO CLIENTE PF
     COLETAR EVIDENCIA    
     ...    file_name=5-tela-anexo-frente-rg
 
-    Upload File By Selector    //html/body/main/input    src/docs/rg-frente.png
+    # Frente do RG é um template fixo (sem campos por lead) versionado em
+    # src/templates/ — ao contrário do verso, não precisa ser gerado a cada
+    # execução em src/docs/ (pasta ignorada pelo git).
+    Upload File By Selector    //html/body/main/input    src/templates/rg-frente.png
 
     Sleep    10s
 
@@ -230,7 +233,19 @@ VISUALIZAR O CONTRATO
 IR PARA O FAQ
     Go To       https://digital-dev.evoluaenergia.com.br/faq/
 
-    COLETAR EVIDENCIA    
+    COLETAR EVIDENCIA
     ...    file_name=10-pop-up-contratacao
 
-    Sleep   120s
+    # Aguarda a pesquisa de satisfação aparecer e dispensa com "Responder
+    # depois" — não respondemos a pesquisa em si, só encerramos o fluxo.
+    Wait For Elements State
+    ...    //*[contains(text(),'Responder depois')]
+    ...    visible
+    ...    60s
+
+    COLETAR EVIDENCIA
+    ...    file_name=11-pesquisa-de-satisfacao
+
+    Click    (//*[contains(text(),'Responder depois')])[last()]
+
+    Sleep    3s

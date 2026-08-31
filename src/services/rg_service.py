@@ -1,11 +1,18 @@
+import os
+
 from PIL import Image
 from reportlab.pdfgen import canvas
 
 def gerar_rg (rg, data_expedicao, nome, pai, mae, naturalidade, data_nascimento, cpf, arquivo_saida='src/docs/rg-verso.pdf'):
-    
+
     template = 'src/templates/rg-template.png'
 
     largura, altura = Image.open(template).size
+
+    # src/docs/ fica no .gitignore (pasta de saída gerada, não versionada) —
+    # num clone novo ela ainda não existe, então o Canvas falharia com
+    # FileNotFoundError ao tentar abrir o arquivo dentro dela.
+    os.makedirs(os.path.dirname(arquivo_saida), exist_ok=True)
 
     pdf = canvas.Canvas(arquivo_saida, pagesize=(largura, altura))
 
