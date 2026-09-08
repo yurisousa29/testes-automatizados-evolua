@@ -222,7 +222,12 @@ SELECIONAR RESPONSAVEL FINANCEIRO
     
     Click      //button[text()='Confirmar']
 VISUALIZAR O CONTRATO
-    Wait For Elements State     //button[text()='Visualizar contrato']      visible     30s
+    # 30s não é sempre suficiente (confirmado em 2026-09-08, reproduzido 2x): a
+    # página /contract-visualization/ mostra um loading ("Conectando você à
+    # energia limpa...") enquanto o contrato é gerado no servidor, e isso pode
+    # passar de 30s. Mesma causa raiz do timeout de download já ajustado em
+    # BAIXAR CONTA EVOLUA (portal-titular-keywords.resource).
+    Wait For Elements State     //button[text()='Visualizar contrato']      visible     90s
     Click      //button[text()='Visualizar contrato']
 
     COLETAR EVIDENCIA    
