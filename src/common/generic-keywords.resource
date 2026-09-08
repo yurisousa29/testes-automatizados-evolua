@@ -103,7 +103,7 @@ GERAR MASSA DE DADOS COMPLETA
     ${lead_housing_type}=           FakerLibrary.RandomChoices    elements=('Próprio', 'Alugado')    length=1
 
     # Dados da conta energia:
-    ${lead_installation_number}=    FakerLibrary.RandomInt    min=2990000000    max=2990000999    step=1
+    ${lead_installation_number}=    FakerLibrary.RandomInt    min=2990000000    max=2999999999    step=1
     ${lead_class}=                  FakerLibrary.RandomChoices    elements=('Monofásico', 'Bifásico', 'Trifásico')    length=1
     ${lead_subclass}=               FakerLibrary.RandomChoices    elements=('Residencial', 'Comercial')    length=1
     ${lead_tariff_type}=            FakerLibrary.RandomChoices    elements=('Convencional B1')    length=1
