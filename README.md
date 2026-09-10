@@ -160,6 +160,30 @@ digitados quanto a etapa exata em que o usuário parou (`persistencia_localstora
   incluindo esse caractere nunca casa. Ancorar em um trecho sem apóstrofo
   (ex.: `contains(text(),'Confira os CNAE')`) evita o problema.
 
+#### Caminhos de exceção (`validacao_dados_invalidos.robot`)
+
+Cobre dados inválidos/faltantes nas 3 etapas do formulário, sempre pelo
+caminho deslogado (validação é do próprio componente React, compartilhado
+pelos dois caminhos). Achados confirmados em 2026-09-11:
+
+- **"Nome da empresa", "Razão Social" e "Nome do responsável"** exigem pelo
+  menos duas palavras — um valor de uma palavra só é rejeitado com "Não
+  permitido nome com apenas um termo." nos três campos.
+- **CNPJ e CPF (Documento do responsável)** são validados pelo dígito
+  verificador de verdade, não só pela máscara/formato.
+- **E-mail e upload de arquivo em formato errado** só são validados ao tentar
+  avançar/anexar (a tela permanece na etapa e mostra um toast) — não são
+  validados enquanto se digita, diferente de CNPJ/CPF/telefone.
+- **CEP inexistente** não preenche o endereço automaticamente e impede
+  avançar, mas não mostra uma mensagem de erro explícita.
+- **Mensagem de upload rejeitado tem o mesmo bug de text node fragmentado**
+  do item acima ("Voltar"/"Anexar Cartão CNPJ"): "Erro ao anexar documento do
+  CNPJ: Formato .txt não permitido." nunca casa com `contains(text(),...)`
+  (confirmado em diagnóstico repetido 3x, com o botão "Avançar" corretamente
+  `disabled` nas 3 tentativas — a validação funciona, só o locator estava
+  errado). Corrigido com `Get Element Count` sobre `contains(.,'permitido')`
+  em vez de `Wait For Elements State` com `contains(text(),...)`.
+
 ### App mobile (`src/tests/app_mobile`)
 
 Testes do app do cliente (Portal do Cliente, Android) via Appium/UiAutomator2.

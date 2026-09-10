@@ -58,6 +58,27 @@ PREENCHER ETAPA EMPRESA FINDER
 AVANCAR CADASTRO FINDER
     Click    //span[text()='Avançar']
 
+VALIDAR AVANCAR DESABILITADO
+    Get Element States    //span[text()='Avançar']    contains    disabled
+
+VALIDAR AVANCAR HABILITADO
+    Get Element States    //span[text()='Avançar']    contains    enabled
+
+VALIDAR FINALIZAR CADASTRO DESABILITADO
+    Get Element States    //span[text()='Finalizar Cadastro']    contains    disabled
+
+VALIDAR FINALIZAR CADASTRO HABILITADO
+    Get Element States    //span[text()='Finalizar Cadastro']    contains    enabled
+
+VALIDAR MENSAGEM DE VALIDACAO FINDER
+    [Documentation]    Confirma uma mensagem de validação de campo (ex.: "CNPJ
+    ...    inválido.", "E-mail inválido."). Algumas aparecem como toast e podem
+    ...    sumir sozinhas depois de alguns segundos — por isso o timeout é
+    ...    curto e a chamada deve vir logo após a ação que dispara a mensagem,
+    ...    sem Sleep antes.
+    [Arguments]    ${mensagem}
+    Wait For Elements State    //*[contains(text(),'${mensagem}')]    visible    5s
+
 FECHAR E REABRIR CADASTRO FINDER
     [Documentation]    Fecha a aba atual e abre uma nova na mesma URL, dentro do
     ...    mesmo contexto do navegador (mesma origem = mesmo localStorage,
