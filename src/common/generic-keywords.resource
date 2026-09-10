@@ -8,6 +8,7 @@ Library        String
 Library        ../services/pdf_service.py
 Library        ../services/rg_service.py
 Library        ../services/cpf_generator.py
+Library        ../services/cnpj_generator.py
 
 *** Keywords ***
 

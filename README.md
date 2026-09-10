@@ -105,6 +105,41 @@ execuções; a lógica em si já foi verificada contra uma conta de expansão co
   solta (`\d` → `d`) e o regex nunca casa. Já causou bugs silenciosos em pelo menos 3 keywords
   diferentes neste arquivo.
 
+### Finder (`src/tests/finder`)
+
+Cadastro de empresas parceiras que vendem o produto Evolua e recebem retorno
+financeiro ("Finder"). Existem dois caminhos de cadastro, ambos usando o
+**mesmo formulário de 3 etapas** (Empresa → Endereço → Financeiro) e o
+**mesmo endpoint** (`POST /api/v1/Finder/Register`):
+
+- **Deslogado** (público, sem conta): `https://parceiro-dev.evoluaenergia.com.br/register-finder-forms/`
+- **Logado**, dentro do Portal dos Parceiros: `.../register-finder/` — usa as
+  mesmas variáveis `URL_PORTAL` / `EMAIL_PORTAL` / `PASSWORD_PORTAL` do Portal
+  de Parceiros. Tem um botão extra, "Abrir lista de CNAE's disponíveis para
+  cadastro", que o caminho deslogado não tem.
+
+#### ⚠️ Achados importantes (2026-09-10)
+
+- **Sucesso sem nenhum feedback visual**: ao concluir o cadastro com sucesso
+  (a API retorna 201 com `accountId`/`contactId`, e um Account + Contact são
+  criados de verdade no Salesforce), a tela **não mostra nenhuma confirmação**
+  — o formulário simplesmente volta ao estado vazio da etapa "Empresa" em
+  silêncio. Por isso os testes de sucesso validam a resposta da API + a
+  criação real do Account/Contact no Salesforce (`VALIDAR CADASTRO FINDER
+  CRIADO NO SALESFORCE`), não uma mensagem de tela. Já o erro de duplicidade
+  (e-mail/CNPJ já cadastrado) **é exibido normalmente** (banner vermelho no
+  topo: "Dados já pertencentes a um contato Finder.").
+- **Navegação direta para o caminho logado perde a sessão**: acessar
+  `.../register-finder/` via URL direta (`Go To`) depois de logar redireciona
+  de volta para a tela de login — a sessão não se mantém em navegação direta.
+  Pode estar relacionado a um bug já conhecido pelo time: o botão que deveria
+  levar o usuário logado até o Finder não está aparecendo no portal (se
+  existisse como link interno, talvez preservasse a sessão por não recarregar
+  a página inteira). Os testes do caminho logado pulam (`SKIP`) com essa
+  mensagem enquanto isso não for esclarecido — ver `IR PARA CADASTRO FINDER
+  LOGADO` no resource. Se você souber de outro caminho de navegação interna
+  até o Finder, atualize essa keyword para usá-lo em vez de `Go To`.
+
 ### App mobile (`src/tests/app_mobile`)
 
 Testes do app do cliente (Portal do Cliente, Android) via Appium/UiAutomator2.
