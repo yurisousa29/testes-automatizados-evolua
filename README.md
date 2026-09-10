@@ -118,6 +118,11 @@ financeiro ("Finder"). Existem dois caminhos de cadastro, ambos usando o
   de Parceiros. Tem um botão extra, "Abrir lista de CNAE's disponíveis para
   cadastro", que o caminho deslogado não tem.
 
+O progresso do formulário é salvo no `localStorage` (chave
+`partnerRegisterState`: versão, etapa atual e valores de todos os campos) —
+fechar a aba e abrir de novo na mesma URL restaura tanto os valores já
+digitados quanto a etapa exata em que o usuário parou (`persistencia_localstorage.robot`).
+
 #### ⚠️ Achados importantes (2026-09-10)
 
 - **Sucesso sem nenhum feedback visual**: ao concluir o cadastro com sucesso
@@ -129,16 +134,22 @@ financeiro ("Finder"). Existem dois caminhos de cadastro, ambos usando o
   CRIADO NO SALESFORCE`), não uma mensagem de tela. Já o erro de duplicidade
   (e-mail/CNPJ já cadastrado) **é exibido normalmente** (banner vermelho no
   topo: "Dados já pertencentes a um contato Finder.").
-- **Navegação direta para o caminho logado perde a sessão**: acessar
-  `.../register-finder/` via URL direta (`Go To`) depois de logar redireciona
-  de volta para a tela de login — a sessão não se mantém em navegação direta.
-  Pode estar relacionado a um bug já conhecido pelo time: o botão que deveria
-  levar o usuário logado até o Finder não está aparecendo no portal (se
-  existisse como link interno, talvez preservasse a sessão por não recarregar
-  a página inteira). Os testes do caminho logado pulam (`SKIP`) com essa
-  mensagem enquanto isso não for esclarecido — ver `IR PARA CADASTRO FINDER
-  LOGADO` no resource. Se você souber de outro caminho de navegação interna
-  até o Finder, atualize essa keyword para usá-lo em vez de `Go To`.
+- **Navegar pro caminho logado exige esperar a sessão gravar**: navegar direto
+  pra `.../register-finder/` (via `Go To`) logo demais após o login pode
+  redirecionar de volta pro login — não é bug do produto, é condição de
+  corrida: o token (localStorage, chave `token`) ainda não tinha sido gravado
+  no instante da navegação. `IR PARA CADASTRO FINDER LOGADO` espera o token
+  existir antes de navegar (`TOKEN DE SESSAO DEVE EXISTIR`) em vez de usar um
+  `Sleep` fixo.
+- **Texto de botão quebrado em múltiplos text nodes**: `contains(text(), ...)`
+  falha silenciosamente (timeout, elemento "não encontrado" mesmo visível na
+  tela) em botões como "Voltar" e "Anexar Cartão CNPJ" — o texto vem
+  fragmentado em mais de um text node. Usar `contains(., ...)` (pega texto de
+  todos os descendentes) em vez de `contains(text(), ...)` nesses casos.
+- **Apóstrofo curvo, não reto**: o título do modal de CNAE's usa apóstrofo
+  curvo (`’`, U+2019), não o reto (`'`, U+0027) — um locator com `text=` exato
+  incluindo esse caractere nunca casa. Ancorar em um trecho sem apóstrofo
+  (ex.: `contains(text(),'Confira os CNAE')`) evita o problema.
 
 ### App mobile (`src/tests/app_mobile`)
 

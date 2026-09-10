@@ -23,21 +23,19 @@ IR PARA CADASTRO FINDER LOGADO
     [Documentation]    Requer login prévio no Portal dos Parceiros (ver
     ...    REALIZAR LOGIN PORTAL DOS PARCEIROS).
     ...
-    ...    LIMITAÇÃO CONHECIDA (2026-09-10): navegar direto para esta URL
-    ...    depois do login (via "Go To") redireciona de volta para a tela de
-    ...    login — a sessão não se mantém em navegação direta por URL. Pode
-    ...    estar relacionado a um bug já conhecido: o botão que deveria levar
-    ...    o usuário logado até o cadastro Finder não está aparecendo no
-    ...    portal (se existisse e fosse um link interno, talvez preservasse a
-    ...    sessão por não recarregar a página inteira). Até isso ser
-    ...    esclarecido/corrigido, esta keyword pula (SKIP) em vez de falhar.
+    ...    NOTA (2026-09-10): navegar direto para esta URL (via "Go To") logo
+    ...    após o login pode redirecionar de volta para a tela de login — não
+    ...    é um bug do produto, é uma condição de corrida: o token de sessão
+    ...    (localStorage, chave "token") ainda não tinha sido gravado no
+    ...    instante da navegação. Por isso esperamos o token existir antes de
+    ...    navegar, em vez de um Sleep fixo.
+    Wait Until Keyword Succeeds    10s    500ms    TOKEN DE SESSAO DEVE EXISTIR
     Go To    https://parceiro-dev.evoluaenergia.com.br/register-finder/
-    ${voltou_pro_login}=    Run Keyword And Return Status
-    ...    Wait For Elements State    text=Acesse sua conta    visible    5s
-    IF    ${voltou_pro_login}
-        Skip    Navegação direta para /register-finder/ perdeu a sessão e voltou para o login (ver limitação conhecida na documentação desta keyword).
-    END
     Wait For Elements State    text=Registrar Finder    visible    10s
+
+TOKEN DE SESSAO DEVE EXISTIR
+    ${tem_token}=    Evaluate JavaScript    ${None}    (() => localStorage.getItem('token') !== null)()
+    Should Be True    ${tem_token}    Token de sessão ainda não foi gravado no localStorage.
 
 PREENCHER ETAPA EMPRESA FINDER
     [Arguments]
@@ -59,6 +57,24 @@ PREENCHER ETAPA EMPRESA FINDER
 
 AVANCAR CADASTRO FINDER
     Click    //span[text()='Avançar']
+
+FECHAR E REABRIR CADASTRO FINDER
+    [Documentation]    Fecha a aba atual e abre uma nova na mesma URL, dentro do
+    ...    mesmo contexto do navegador (mesma origem = mesmo localStorage,
+    ...    exatamente como fechar/reabrir uma aba de verdade no mesmo
+    ...    navegador). O formulário salva o progresso na chave
+    ...    "partnerRegisterState" do localStorage — tanto os valores já
+    ...    preenchidos quanto a etapa em que o usuário parou devem continuar lá.
+    [Arguments]    ${url}
+    Close Page
+    New Page    ${url}
+    Wait For Load State    domcontentloaded
+
+VOLTAR ETAPA FINDER
+    # contains(., ...) em vez de contains(text(), ...): o texto do botão vem
+    # quebrado em mais de um text node — ver nota em ANEXAR DOCUMENTOS FINDER
+    # e no teste de persistência de localStorage.
+    Click    //button[contains(.,'Voltar')]
 
 ANEXAR DOCUMENTOS FINDER
     [Documentation]    Anexa Cartão CNPJ e Documento de Identificação. A tela só
@@ -148,9 +164,15 @@ VALIDAR CADASTRO FINDER CRIADO NO SALESFORCE
 # ---------------------------------------------------------------------------
 
 ABRIR LISTA DE CNAES DISPONIVEIS
+    # 20s: a lista de CNAE's às vezes demora mais que 10s pra carregar/renderizar
+    # por completo (mesmo padrão de lentidão já visto em outras telas do projeto).
     Wait For Elements State    //button[contains(text(),'CNAE')]    visible    10s
     Click    //button[contains(text(),'CNAE')]
-    Wait For Elements State    text=Confira os CNAE's disponíveis para cadastro    visible    10s
+    # Locator evita o apóstrofo de "CNAE's": confirmado em 2026-09-10 que a tela
+    # usa apóstrofo curvo (’, U+2019), não o reto (') — "Confira os CNAE" sozinho
+    # já é único (só o título do modal começa assim; o botão que abre começa com
+    # "Abrir").
+    Wait For Elements State    //*[contains(text(),'Confira os CNAE')]    visible    20s
 
 BUSCAR CNAE
     [Arguments]    ${termo}
@@ -162,4 +184,4 @@ CONTAR LINHAS DA LISTA DE CNAES
 
 FECHAR LISTA DE CNAES
     Click    //span[text()='Close']
-    Wait For Elements State    text=Confira os CNAE's disponíveis para cadastro    hidden    5s
+    Wait For Elements State    //*[contains(text(),'Confira os CNAE')]    hidden    5s
