@@ -110,11 +110,19 @@ FINALIZAR CADASTRO FINDER
     [Documentation]    Clica em "Finalizar Cadastro" e retorna a resposta da API
     ...    (POST /api/v1/Finder/Register) como um dicionário Robot Framework
     ...    (status/body/etc.) — é a fonte de verdade pra saber se o cadastro
-    ...    funcionou. Confirmado em 2026-09-10: em caso de SUCESSO a tela não
-    ...    dá nenhum feedback visual (só reseta o formulário em silêncio) — ver
-    ...    VALIDAR CADASTRO FINDER CRIADO NO SALESFORCE. Em caso de erro de
-    ...    duplicidade a tela mostra um banner normalmente (ver VALIDAR ERRO DE
-    ...    CADASTRO DUPLICADO).
+    ...    funcionou, independente de feedback visual (ver nota abaixo). Em
+    ...    caso de erro de duplicidade a tela mostra um banner normalmente (ver
+    ...    VALIDAR ERRO DE CADASTRO DUPLICADO) nos dois caminhos.
+    ...
+    ...    Em caso de SUCESSO o comportamento visual DIFERE entre os dois
+    ...    caminhos — confirmado em 2026-09-11:
+    ...    - Deslogado: NÃO dá nenhum feedback (só reseta o formulário em
+    ...      silêncio, mesmo esperando 10s) — usar VALIDAR CADASTRO FINDER
+    ...      CRIADO NO SALESFORCE como confirmação.
+    ...    - Logado: redireciona (client-side, ~2s de atraso — esperar antes de
+    ...      checar) para /finder-register-completed/, mostrando "Acesso
+    ...      disponível após assinatura" — ver VALIDAR TELA DE CADASTRO FINDER
+    ...      CONCLUIDO.
     ${promise}=    Promise To    Wait For Response
     ...    matcher=response => response.url().includes('Finder/Register')    timeout=15s
     Click    //span[text()='Finalizar Cadastro']
@@ -124,6 +132,16 @@ FINALIZAR CADASTRO FINDER
 
 VALIDAR ERRO DE CADASTRO DUPLICADO
     Wait For Elements State    text=Dados já pertencentes a um contato Finder.    visible    10s
+
+VALIDAR TELA DE CADASTRO FINDER CONCLUIDO
+    [Documentation]    Só existe no caminho LOGADO. Depois de FINALIZAR
+    ...    CADASTRO FINDER com sucesso, a tela redireciona (client-side, ~2s de
+    ...    atraso) para /finder-register-completed/, mostrando o nome do
+    ...    responsável logado e avisando que o login/senha do novo parceiro só
+    ...    serão enviados após a assinatura do termo pela pessoa indicada.
+    Wait For Elements State    //h1[contains(text(),'Acesso disponível após assinatura')]    visible    10s
+    ${url}=    Get Url
+    Should Contain    ${url}    /finder-register-completed/
 
 VALIDAR CADASTRO FINDER CRIADO NO SALESFORCE
     [Documentation]    Confirma via Salesforce que o Account (empresa) e o

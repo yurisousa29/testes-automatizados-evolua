@@ -116,24 +116,33 @@ financeiro ("Finder"). Existem dois caminhos de cadastro, ambos usando o
 - **Logado**, dentro do Portal dos Parceiros: `.../register-finder/` — usa as
   mesmas variáveis `URL_PORTAL` / `EMAIL_PORTAL` / `PASSWORD_PORTAL` do Portal
   de Parceiros. Tem um botão extra, "Abrir lista de CNAE's disponíveis para
-  cadastro", que o caminho deslogado não tem.
+  cadastro", que o caminho deslogado não tem, e o sucesso do cadastro se
+  comporta diferente entre os dois (ver achados abaixo).
 
 O progresso do formulário é salvo no `localStorage` (chave
 `partnerRegisterState`: versão, etapa atual e valores de todos os campos) —
 fechar a aba e abrir de novo na mesma URL restaura tanto os valores já
 digitados quanto a etapa exata em que o usuário parou (`persistencia_localstorage.robot`).
 
-#### ⚠️ Achados importantes (2026-09-10)
+#### ⚠️ Achados importantes (2026-09-10/11)
 
-- **Sucesso sem nenhum feedback visual**: ao concluir o cadastro com sucesso
-  (a API retorna 201 com `accountId`/`contactId`, e um Account + Contact são
-  criados de verdade no Salesforce), a tela **não mostra nenhuma confirmação**
-  — o formulário simplesmente volta ao estado vazio da etapa "Empresa" em
-  silêncio. Por isso os testes de sucesso validam a resposta da API + a
-  criação real do Account/Contact no Salesforce (`VALIDAR CADASTRO FINDER
-  CRIADO NO SALESFORCE`), não uma mensagem de tela. Já o erro de duplicidade
-  (e-mail/CNPJ já cadastrado) **é exibido normalmente** (banner vermelho no
-  topo: "Dados já pertencentes a um contato Finder.").
+- **Feedback de sucesso difere entre os dois caminhos** (corrigido em
+  2026-09-11 — a versão anterior deste README dizia que nenhum dos dois dava
+  feedback, o que só é verdade pro deslogado):
+  - **Deslogado**: a API retorna 201 (`accountId`/`contactId`, Account +
+    Contact criados de verdade no Salesforce), mas a tela **não mostra
+    nenhuma confirmação** — o formulário só volta ao estado vazio da etapa
+    "Empresa" em silêncio (confirmado esperando até 10s). Os testes desse
+    caminho validam a resposta da API + a criação real no Salesforce
+    (`VALIDAR CADASTRO FINDER CRIADO NO SALESFORCE`), não uma mensagem de tela.
+  - **Logado**: redireciona (client-side, ~2s de atraso — esperar antes de
+    checar a tela) para `/finder-register-completed/`, mostrando "Acesso
+    disponível após assinatura" e avisando que o login/senha do novo parceiro
+    só são enviados após a assinatura do termo pela pessoa indicada. Validado
+    por `VALIDAR TELA DE CADASTRO FINDER CONCLUIDO`.
+  - Nos dois caminhos, o erro de duplicidade (e-mail/CNPJ já cadastrado) **é
+    exibido normalmente** (banner vermelho no topo: "Dados já pertencentes a
+    um contato Finder.").
 - **Navegar pro caminho logado exige esperar a sessão gravar**: navegar direto
   pra `.../register-finder/` (via `Go To`) logo demais após o login pode
   redirecionar de volta pro login — não é bug do produto, é condição de

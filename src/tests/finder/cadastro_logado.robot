@@ -2,8 +2,12 @@
 Documentation      Cadastro de parceiro Finder pelo caminho logado, dentro do
 ...                Portal dos Parceiros: .../register-finder/. Usa exatamente o
 ...                mesmo formulário e o mesmo endpoint do caminho deslogado (ver
-...                cadastro_deslogado.robot) — a única diferença de tela é o
-...                botão extra "Abrir lista de CNAE's disponíveis para cadastro".
+...                cadastro_deslogado.robot), mas com 2 diferenças de tela:
+...                - Botão extra "Abrir lista de CNAE's disponíveis para cadastro".
+...                - Ao contrário do deslogado (que não dá feedback nenhum), o
+...                  sucesso aqui redireciona para /finder-register-completed/
+...                  (~2s de atraso) — ver VALIDAR TELA DE CADASTRO FINDER
+...                  CONCLUIDO no resource.
 Library            ../../../load_env.py
 Resource           ../../common/generic-keywords.resource
 Resource           ../../keywords/finder-keywords.resource
@@ -48,6 +52,8 @@ Cadastro de novo parceiro Finder pelo portal logado é criado com sucesso
     ${resposta}=    FINALIZAR CADASTRO FINDER
     Should Be Equal As Integers    ${resposta}[status]    201
     ...    Cadastro não foi criado — resposta: ${resposta}[body]
+
+    VALIDAR TELA DE CADASTRO FINDER CONCLUIDO
 
     CONECTAR SALESFORCE
     VALIDAR CADASTRO FINDER CRIADO NO SALESFORCE
