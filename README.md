@@ -21,6 +21,46 @@ Além das URLs e credenciais, há uma variável opcional:
 - `SALESFORCE_CLIENT_ID`, `SALESFORCE_CLIENT_SECRET`, `SALESFORCE_AUTH_URL` —
   credenciais da Connected App (fluxo OAuth Client Credentials).
 
+### Portal dos Parceiros (`src/tests/portal_parceiros`, `src/tests/esteira_digital`)
+
+- `URL_PORTAL`, `EMAIL_PORTAL` / `PASSWORD_PORTAL` — conta de teste do canal
+  **Grandes Contas**.
+- `EMAIL_PORTAL_INDIRETO` / `PASSWORD_PORTAL_INDIRETO` — conta de teste do
+  **canal indireto**. Necessária para testar regras de negócio exclusivas
+  desse canal (ver achado abaixo) — a conta de Grandes Contas não serve.
+
+#### ⚠️ Achados importantes (2026-09-11) — validação antifraude (B2E) por consumo
+
+- **Regra exclusiva do canal indireto**: o campo `Contact.ValidacaoAntifraude__c`
+  (picklist: `Aprovado` / `Em análise` / `Reprovado`) só é preenchido quando o
+  cadastro é feito por um vendedor do **canal indireto**. Pelo canal Grandes
+  Contas, o campo fica sempre `null` (confirmado até com consumo bem acima do
+  limite) — não é bug, é uma regra de negócio por canal.
+- **Soma de todas as UCs, não só a primeira**: cadastrando 2+ contas de
+  energia (fluxo "Adicionar nova conta" na tela "Análise da conta de luz"), a
+  validação reprova quando a **soma** do consumo de todas as UCs vinculadas
+  ultrapassa o limite — mesmo que nenhuma delas isoladamente ultrapasse.
+  Testado e confirmado: UC1 ~1800 kWh + UC2 ~2200 kWh (nenhuma >= 3.000
+  isolada, soma = 4.000) → `Reprovado`.
+- **Limite exato: 3.000 kWh, sobre o consumo BRUTO**, confirmado por bisseção
+  com precisão de 1 kWh: `2999` → `Aprovado` (`null`), `3000` → `Reprovado`,
+  `3001` → `Reprovado`. "Bruto" aqui é o valor passado em
+  `consumo_mensal_kwh` (ver abaixo) — **não** confundir com o "kWh" exibido
+  na tela "Customizar produto" ("Energia sujeita a desconto"), que já vem com
+  um desconto (~11%) aplicado e não corresponde ao valor comparado pela regra.
+
+#### Consumo customizável nas faturas de teste (`src/services/pdf_service.py`)
+
+O template de fatura (`src/templates/template-fatura-mg.jpg`) tem a tabela
+"Histórico de Consumo" fixa na imagem (sempre 6.000 kWh/mês) — sem
+sobrescrevê-la, toda fatura gerada por `CRIAR FATURA CLIENTE PF` resulta no
+mesmo consumo (~5.373 kWh reportado pelo portal), impossibilitando testar
+regras de negócio por faixa de consumo (ex.: a validação B2E acima). O
+argumento opcional `consumo_mensal_kwh` sobrescreve essa coluna com o valor
+desejado (mesmo texto repetido nas 13 linhas — suficiente para variar o
+consumo médio calculado pelo portal). Compatível com todo código existente:
+sem esse argumento, o comportamento não muda.
+
 ### Portal do Titular (`src/tests/portal_titular`)
 
 Testes do Portal do Titular (portal web, `robotframework-browser`/Playwright). Cobertura

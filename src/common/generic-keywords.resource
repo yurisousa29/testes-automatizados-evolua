@@ -32,16 +32,23 @@ ACESSAR PAGINA ${url_pagina}
     Wait For Load State    domcontentloaded
 
 CRIAR FATURA CLIENTE PF
-    [Arguments]    
-    ...    ${installation_number}    
-    ...    ${cpf}    
-    ...    ${name}    
-    ...    ${reference_date}    
-    ...    ${due_date}    
-    ...    ${value}    
+    [Documentation]    Gera a fatura (PDF) de uma UC para anexar na esteira.
+    ...    ${consumo_mensal_kwh}, quando informado, sobrescreve o consumo
+    ...    fixo do template (~6000 kWh/mes, sempre reportado como ~5373 kWh
+    ...    pelo portal) -- necessario para testar cenarios de consumo
+    ...    baixo/alto (ex.: regra de validacao B2E por limite de kWh). Ver
+    ...    src/services/pdf_service.py.
+    [Arguments]
+    ...    ${installation_number}
+    ...    ${cpf}
+    ...    ${name}
+    ...    ${reference_date}
+    ...    ${due_date}
+    ...    ${value}
     ...    ${class}
     ...    ${subclass}
-    ...    ${tariff_type} 
+    ...    ${tariff_type}
+    ...    ${consumo_mensal_kwh}=${EMPTY}
 
     ${installation_number}    Convert To String    ${installation_number}
     ${cpf}                    Convert To String    ${cpf}
@@ -56,17 +63,32 @@ CRIAR FATURA CLIENTE PF
     ${subclass}               Convert To String    ${subclass}
     ${tariff_type}            Convert To String    ${tariff_type}
 
-    ${arquivo}=    Gerar Pdf
-        ...        ${installation_number}
-        ...        ${cpf}
-        ...        ${name}
-        ...        Rua da felicidade, n480
-        ...        ${reference_date}
-        ...        ${due_date}
-        ...        ${formatted_value}
-        ...        ${class}
-        ...        ${subclass}
-        ...        ${tariff_type}
+    IF    '${consumo_mensal_kwh}' == ''
+        ${arquivo}=    Gerar Pdf
+            ...        ${installation_number}
+            ...        ${cpf}
+            ...        ${name}
+            ...        Rua da felicidade, n480
+            ...        ${reference_date}
+            ...        ${due_date}
+            ...        ${formatted_value}
+            ...        ${class}
+            ...        ${subclass}
+            ...        ${tariff_type}
+    ELSE
+        ${arquivo}=    Gerar Pdf
+            ...        ${installation_number}
+            ...        ${cpf}
+            ...        ${name}
+            ...        Rua da felicidade, n480
+            ...        ${reference_date}
+            ...        ${due_date}
+            ...        ${formatted_value}
+            ...        ${class}
+            ...        ${subclass}
+            ...        ${tariff_type}
+            ...        consumo_mensal_kwh=${consumo_mensal_kwh}
+    END
 
 GERAR DOCUMENTO RG
     [Arguments]    ${rg}    ${shipping_date}    ${name}    ${father_name}    ${mother_name}    ${naturalness}    ${birthdate}    ${cpf}

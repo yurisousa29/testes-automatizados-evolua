@@ -2,7 +2,21 @@ import os
 
 from PIL import Image
 from reportlab.pdfgen import canvas
-from reportlab.lib.colors import white
+from reportlab.lib.colors import white, black
+
+# Posicoes (distancia do topo da imagem, em pixels) de cada linha da coluna
+# "Cons. kWh" na tabela "Historico de Consumo" do template. O template estatico
+# (template-fatura-mg.jpg) traz essa coluna sempre fixa em 6000 kWh/mes -- sem
+# sobrescreve-la, toda fatura gerada resulta no mesmo consumo (~5373 kWh
+# reportado pelo portal), impossibilitando testar cenarios de consumo
+# baixo/alto (ex.: regra de validacao B2E por limite de kWh). Coordenadas
+# calibradas manualmente sobre o template (grade de referencia sobreposta).
+_LINHAS_HISTORICO_CONSUMO_Y = [
+    1398, 1420, 1446, 1472, 1498, 1524, 1550,
+    1576, 1602, 1628, 1654, 1680, 1706,
+]
+_COLUNA_CONS_KWH_X = 150
+_COLUNA_CONS_KWH_LARGURA = 120
 
 
 def gerar_pdf(
@@ -16,6 +30,7 @@ def gerar_pdf(
     classe,
     subclasse,
     tipo_tarifa,
+    consumo_mensal_kwh=None,
     arquivo_saida="./src/docs/Fatura-Cliente.pdf"
 ):
     template = "./src/templates/template-fatura-mg.jpg"
@@ -89,6 +104,24 @@ def gerar_pdf(
     pdf.setFillColor(white)
     pdf.setFont("Helvetica-Bold", 20)
     pdf.drawString(710, altura - 460, tipo_tarifa)
+
+    # Historico de Consumo (coluna "Cons. kWh") -- sobrescreve os 13 valores
+    # fixos do template com o consumo desejado, quando informado.
+    if consumo_mensal_kwh is not None:
+        pdf.setFillColor(white)
+        pdf.rect(
+            _COLUNA_CONS_KWH_X,
+            altura - _LINHAS_HISTORICO_CONSUMO_Y[-1] - 10,
+            _COLUNA_CONS_KWH_LARGURA,
+            (_LINHAS_HISTORICO_CONSUMO_Y[-1] - _LINHAS_HISTORICO_CONSUMO_Y[0]) + 30,
+            fill=1,
+            stroke=0,
+        )
+
+        pdf.setFillColor(black)
+        pdf.setFont("Helvetica", 14)
+        for y in _LINHAS_HISTORICO_CONSUMO_Y:
+            pdf.drawString(178, altura - y, str(consumo_mensal_kwh))
 
     pdf.save()
 
